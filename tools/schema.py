@@ -63,9 +63,6 @@ class Ontology:
     def dir_of(self, type_name):
         return self.spec(type_name).get("dir", "")
 
-    def layer(self, type_name):
-        return self.spec(type_name).get("layer", "")
-
     def type_of_id(self, card_id):
         """ID から型を判定する。どの型にも当たらなければ None。"""
         if not card_id:
@@ -123,9 +120,6 @@ class Ontology:
 
     # ------------------------------------------------------------ 関係
 
-    def relation(self, name):
-        return self.relations.get(name)
-
     def relation_range(self, name):
         rel = self.relations.get(name) or {}
         rng = rel.get("range", [])
@@ -173,8 +167,6 @@ class Ontology:
         anchors = (self.meeting_relation().get("date-anchors") or {}).get(type_name, {})
         return anchors.get(which) or None
 
-    def types_with_meetings(self):
-        return self.meeting_relation().get("domain", [])
 
     # ------------------------------------------------------------ 閾値
 

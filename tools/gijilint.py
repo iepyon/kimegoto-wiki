@@ -431,6 +431,21 @@ def check_quote_missing(ctx):
 
 # ================================================== 役割・導出
 
+@check("role-mapping", ERROR)
+def check_role_mapping(ctx):
+    """案件に role-mapping.yaml が無い。
+
+    キットのルートにフォールバックはしない（社名も決定権も案件ごとに違い、
+    共有すると静かに間違う）。無ければ `決定の所在` から `種別` を導けず、
+    `決定権` も見られないので、Pass 3 の判定が全部効かなくなる。
+    """
+    if ctx.wiki.has_role_mapping:
+        return []
+    return [_p(check_role_mapping, "role-mapping.yaml",
+               "案件に role-mapping.yaml が無い"
+               "（`cp templates/project/role-mapping.yaml <案件>/` で置く）")]
+
+
 @check("role-unknown", WARNING)
 def check_role_unknown(ctx):
     """role-mapping.yaml に無い役割。②の確認で追記する。"""

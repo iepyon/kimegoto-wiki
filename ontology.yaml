@@ -85,13 +85,13 @@ types:
     headline: 正式
     has-quote: false
 
+# 機械が走査に使うものだけ。会議ディレクトリの中のファイル名（transcript.md /
+# segments.yaml / promote-candidates.yaml）は機械が評価しないので、ここには
+# 置かない。正本は templates/project/README.md と各スキル。
 meetings:
   id: "^MTG-\\d{8}$"
   dir: meetings
-  transcript: transcript.md
-  segments: segments.yaml
   logs-dir: logs
-  candidates: promote-candidates.yaml
 
 # ------------------------------------------------------------
 # 語彙

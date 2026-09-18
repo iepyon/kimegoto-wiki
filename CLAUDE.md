@@ -16,7 +16,8 @@
 |---|---|---|
 | **不変層** | `projects/<slug>/meetings/*/transcript.md`、`meetings/*/logs/LOG-*.md` | 生成は Pass 1–2。**一度コミットしたら書き換えない。** PreToolUse フックが止める |
 | **記録層** | `projects/<slug>/` のカード群 | 規約に従って作成・更新する |
-| **設定層** | `ontology.yaml`、`prompts/`、`templates/`、`decision-guide.md`、`role-mapping.yaml` | 人間が合意のうえで変える |
+| **設定層** | `ontology.yaml`、`prompts/`、`templates/`、`decision-guide.md` | 人間が合意のうえで変える |
+| **案件の設定** | `projects/<slug>/role-mapping.yaml` | 案件ごとに持つ。キットのルートにフォールバックしない |
 | **生成物** | `projects/<slug>/views/*.md`、`schema.md` の `<!-- generated -->` ブロック | **手で編集しない。** 再生成で消える |
 
 LOG を不変層に入れているのは、そこが**すべての引用の照合先**だから。

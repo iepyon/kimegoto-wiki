@@ -44,6 +44,7 @@ class FrontmatterTest(unittest.TestCase):
         root = Path(tmp.name)
         (root / "decisions").mkdir(parents=True)
         (root / "decisions" / name).write_text(text, encoding="utf-8")
+        (root / "role-mapping.yaml").write_text(ROLE_MAPPING, encoding="utf-8")
         return Wiki(root)
 
     def test_壊れたfrontmatterを名指しする(self):
@@ -322,6 +323,20 @@ class DecTypeDerivedTest(LintTestCase):
     def test_一致すれば鳴らない(self):
         self.assertQuiet([LOG, ("DEC", "DEC-001",
                                 {"決定の所在": "顧客法務", "種別": "契約制約"})], "dec-type-derived")
+
+
+class RoleMappingTest(LintTestCase):
+    """キットのルートへフォールバックしない。無いなら無いと言う。"""
+
+    def test_あれば鳴らない(self):
+        self.assertQuiet([LOG, ("DEC", "DEC-001", {})], "role-mapping")
+
+    def test_無ければ鳴る(self):
+        wiki = self.wiki([LOG, ("DEC", "DEC-001", {})])
+        (wiki.root / "role-mapping.yaml").unlink()
+        found = gijilint.run(wiki, today=TODAY, only={"role-mapping"})
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].level, gijilint.ERROR)
 
 
 class RoleUnknownTest(LintTestCase):

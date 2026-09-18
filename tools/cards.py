@@ -115,12 +115,11 @@ class Card:
 class Meeting:
     """1回の会議。カードではないが、カードの入れ物として扱う。"""
 
-    __slots__ = ("id", "dir", "_ontology")
+    __slots__ = ("id", "dir")
 
-    def __init__(self, meeting_id, directory, ontology):
+    def __init__(self, meeting_id, directory):
         self.id = meeting_id
         self.dir = directory
-        self._ontology = ontology
 
     def __repr__(self):
         return "<Meeting %s>" % self.id
@@ -130,22 +129,6 @@ class Meeting:
         """MTG-20260918 → 2026-09-18。"""
         digits = self.id.split("-")[-1]
         return "%s-%s-%s" % (digits[0:4], digits[4:6], digits[6:8])
-
-    @property
-    def transcript_path(self):
-        return self.dir / self._ontology.meetings.get("transcript", "transcript.md")
-
-    @property
-    def segments_path(self):
-        return self.dir / self._ontology.meetings.get("segments", "segments.yaml")
-
-    @property
-    def candidates_path(self):
-        return self.dir / self._ontology.meetings.get("candidates", "promote-candidates.yaml")
-
-    @property
-    def logs_dir(self):
-        return self.dir / self._ontology.meetings.get("logs-dir", "logs")
 
 
 def parse_card(path, ontology):
@@ -263,7 +246,7 @@ class Wiki:
         out = {}
         for directory in sorted(p for p in base.iterdir() if p.is_dir()):
             if self.ontology.type_of_id(directory.name) == "MTG":
-                out[directory.name] = Meeting(directory.name, directory, self.ontology)
+                out[directory.name] = Meeting(directory.name, directory)
         return out
 
     @cached_property
@@ -308,9 +291,9 @@ class Wiki:
 
     @cached_property
     def role_mapping(self):
+        # 案件ごとに持つ。キットのルートにフォールバックしない
+        # （社名も決定権も案件ごとに違う。共有すると静かに間違う）。
         path = self.root / "role-mapping.yaml"
-        if not path.exists():
-            path = schema.KIT_ROOT / "role-mapping.yaml"
         if not path.exists():
             return {}
         try:
@@ -318,6 +301,10 @@ class Wiki:
         except MiniYamlError:
             return {}
         return data if isinstance(data, dict) else {}
+
+    @property
+    def has_role_mapping(self):
+        return (self.root / "role-mapping.yaml").exists()
 
     @property
     def roles(self):
@@ -350,12 +337,6 @@ class Wiki:
             if role.get("社名"):
                 out.add(role["社名"])
         return {c for c in out if c}
-
-    # ------------------------------------------------------------ 引用
-
-    @cached_property
-    def utterances_by_log(self):
-        return {c.id: c.utterances for c in self.by_type("LOG")}
 
     # ------------------------------------------------------------ ビュー
 
