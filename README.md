@@ -75,18 +75,60 @@ README を確認した結果、**YAML フロントマターもトレーサビリ
 
 ## ファイル
 
+### 読み物・規約
+
 | ファイル | 内容 |
 |---|---|
-| `schema.md` | 7種のカード定義・ID規約・ディレクトリ構成 |
 | `decision-guide.md` | **何を DEC とするかの判定ガイド**。境界例つき。最初に読む |
+| `schema.md` | 7種のカード定義・ID規約・ディレクトリ構成（フィールド表は `ontology.yaml` から生成） |
 | `research-notes.md` | 先行研究の調査と、採った／採らなかった判断の記録（出典つき） |
-| `role-mapping.yaml` | 役割 → 所属・社名・決定権（**最初に埋める**） |
+| `CLAUDE.md` | 3つの層・絶対に守る3つのルール・スキル共通規約 |
+| `docs/backlog.md` | **やらないと決めたこと**とその理由 |
+| `docs/openspec-bridge.md` | OpenSpec 連携の規約（第2次。実装はまだ無い） |
+
+### 設定（機械が読む正本）
+
+| ファイル | 内容 |
+|---|---|
+| `ontology.yaml` | **型・フィールド・語彙・関係・導出・閾値の唯一の正本。** lint もビューもここを見る |
+| `role-mapping.yaml` | 役割 → 所属・社名・決定権（**最初に埋める**。案件ごとに置く） |
+| `templates/card/*.md` | 7種のカードの雛形 |
+
+### プロンプト
+
+| ファイル | 内容 |
+|---|---|
 | `prompts/pass1_segment.md` | 論点の切り出し |
 | `prompts/pass2_log.md` | LOG カードの生成・検証可能な事実の列挙・未知語検出 |
 | `prompts/pass3_extract.md` | DEC / Q / ACT の抽出・欠落ガード |
 | `prompts/pass4_promote.md` | CON / ASM / TERM の昇格候補 |
 | `prompts/render_minutes.md` | 議事録のレンダリング（社内版／顧客提出版・みなし確定） |
-| `verify_quotes.py` | 引用の機械検証（依存: 標準ライブラリのみ） |
+
+### 道具（Python 3・標準ライブラリのみ）
+
+| コマンド | 内容 |
+|---|---|
+| `giji lint` | 整合性の機械検査。**error 0 が不変条件**（warning 0 は目指さない） |
+| `giji verify-quotes --fix` | 引用の照合と、不一致の「推測」への降格 |
+| `giji views` | 横断ビュー・次回アジェンダ・指標の生成 |
+| `giji agenda` | 次回アジェンダを標準出力へ |
+| `giji review --meeting MTG-...` | 確認②の25分のチェックリスト |
+| `giji minutes-input --meeting MTG-... [--edition customer]` | 議事録の材料（顧客版の除外は機械が行う） |
+| `giji promote-input --meeting MTG-...` | 昇格候補の材料（**`なぜ` 未記入の決定を落とす**） |
+| `giji new <型> --write` | 雛形からカードを起こす（採番つき） |
+| `giji issue --act ACT-NNN` | GitHub Issue の下書き（`--create` で起票） |
+| `giji schema --check` | `ontology.yaml` と `schema.md` / 雛形の同期 |
+
+`giji` は `python3 tools/giji.py` のこと。対象の案件は `.env` の
+`CURRENT_PROJECT`、または `--root` で指定する。
+
+### Claude Code の統合
+
+| 場所 | 内容 |
+|---|---|
+| `.claude/skills/` | 4パス・確認②・議事録・アジェンダ・Issue・lint の9スキル |
+| `.claude/settings.json` | 不変層のガード（PreToolUse）、ビュー再生成と lint（Stop） |
+| `.githooks/pre-commit` | テスト・生成物の鮮度・lint・不変層の5段 |
 
 ---
 
@@ -103,7 +145,14 @@ README を確認した結果、**YAML フロントマターもトレーサビリ
    - 顧客社名と、契約上の**会議体名**を入れる
    - 各役割の `決定権` と `決定の種別` を決める ← ここが Pass 3 の精度を決める
 
-3. **ディレクトリを作る**（`schema.md` の構成に従う）
+3. **案件のディレクトリを作る**
+
+   ```
+   cp -r templates/project projects/<案件名>
+   echo "CURRENT_PROJECT=<案件名>" > .env
+   ```
+
+   `role-mapping.yaml` は案件ディレクトリの中に置く。
 
 4. **既存の用語集を TERM カードに移す**
    - `正式` だけ入れれば足りる。`表記揺れ` は回しながら育てる
@@ -122,8 +171,12 @@ Pass 1  →  segments.yaml を人間が確認（粒度の調整）← ここだ�
 Pass 2  →  LOG カード生成 + 未知語リスト
 Pass 3  →  論点ごとに反復実行（DEC / Q / ACT）
 python3 verify_quotes.py --fix     ← 引用を検証、不一致は「推測」に降格
+python3 tools/giji.py lint         ← error 0 を確認
 Pass 4  →  昇格候補リスト
 ```
+
+Claude Code では `/segment` `/log-cards` `/extract` `/promote` のスキルが
+それぞれのパスに対応する。
 
 ### ② 確認（人間・25分／**会議当日か翌日に固定**）
 
@@ -137,6 +190,10 @@ Pass 4  →  昇格候補リスト
 | 2-3 | ACT の担当・期限を入れる（空欄が正常な出力）／前回 ACT の status を更新 | 4分 |
 | 2-4 | Pass 4 の昇格候補を yes/no で承認（ASM は `脆弱性: 高` のものだけ） | 6分 |
 
+`python3 tools/giji.py review --meeting MTG-YYYYMMDD` が、この順序で
+**該当するカードだけ**を並べて出す（0件の節は「0件」とだけ出る）。
+Claude Code では `/review` スキルが進行する。
+
 **`なぜ` を書かないことのコスト**（必須フィールドを作らずに記入を促す仕掛け）
 
 - `なぜ` 未記入の DEC は**次回アジェンダ冒頭に自動掲示される**
@@ -148,13 +205,22 @@ Pass 4  →  昇格候補リスト
 
 ### ③ 議事録（LLM・5分）
 
-`prompts/render_minutes.md` で社内版を生成。リーダのレビュー後、必要なら顧客提出版を生成して PDF 化。
+`python3 tools/giji.py minutes-input --meeting MTG-YYYYMMDD` で材料を組み立て、
+`prompts/render_minutes.md` で社内版を生成する。リーダのレビュー後、必要なら
+`--edition customer` で顧客提出版を生成して PDF 化。
+
+**顧客提出版で出せない情報は CLI が機械的に落とす**（`ontology.yaml` の
+`editions.customer` に宣言がある）。漏れたら契約上の事故になるので、
+LLM の遵守に賭けない。LLM の仕事は残った情報の文章化だけ。
 
 ### ④ 次回アジェンダ（LLM・自動）
 
 - `status: 未決` の Q すべて
 - `完了` `取り下げ` 以外の ACT すべて
 - 四半期に1回: `status: 有効` かつ `脆弱性: 高` の ASM だけ棚卸し（5分）
+
+`python3 tools/giji.py agenda` が出す。Stop フックがターンの終わりに
+`views/agenda-next.md` を作り直すので、人が忘れても勝手に出てくる。
 
 **④ が「Wiki を使う動機」になる。** 溜める動機より引く動機を先に作るのが定着の条件。
 

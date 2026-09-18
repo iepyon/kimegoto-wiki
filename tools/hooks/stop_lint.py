@@ -40,7 +40,7 @@ def main():
             if not os.path.isdir(root):
                 continue
             wiki = Wiki(root, ontology)
-            if not wiki.cards:
+            if not wiki.cards or wiki.is_fixture:
                 continue
             errors.extend((slug, p) for p in gijilint.run(wiki)
                           if p.level == gijilint.ERROR)

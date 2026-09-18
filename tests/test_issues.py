@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 """Issue 下書きのテスト。gh は呼ばない。"""
 
+import contextlib
+import io
 import unittest
 
 from tests.fixtures import WikiTestCase
 from tools import issues
+
+
+def quietly(func, *args):
+    """CLI の標準出力でテスト結果を汚さない。"""
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        return func(*args)
 
 LOG = ("LOG", "LOG-20260918-01", {})
 
@@ -79,16 +87,17 @@ class DryRunTest(WikiTestCase):
     def test_createなしでは何も起票しない(self):
         w = self.wiki([LOG, ("ACT", "ACT-001", {})])
         before = w.get("ACT-001").path.read_text(encoding="utf-8")
-        issues.main(["--root", str(w.root), "--act", "ACT-001"])
+        quietly(issues.main, ["--root", str(w.root), "--act", "ACT-001"])
         self.assertEqual(w.get("ACT-001").path.read_text(encoding="utf-8"), before)
 
     def test_起票済みは飛ばす(self):
         w = self.wiki([LOG, ("ACT", "ACT-001", {"issue": "owner/repo#1"})])
-        self.assertEqual(issues.main(["--root", str(w.root), "--act", "ACT-001"]), 0)
+        self.assertEqual(quietly(issues.main, ["--root", str(w.root), "--act", "ACT-001"]), 0)
 
     def test_createにはrepoが要る(self):
         w = self.wiki([LOG, ("ACT", "ACT-001", {})])
-        self.assertEqual(issues.main(["--root", str(w.root), "--act", "ACT-001", "--create"]), 2)
+        self.assertEqual(
+            quietly(issues.main, ["--root", str(w.root), "--act", "ACT-001", "--create"]), 2)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,55 @@
+#!/bin/sh
+# 規約を機械的に守らせる門。
+#
+# --no-verify による迂回は許容する。技術的に塞げないし、フックは強制装置ではなく
+# 規律の道具として置いている。
+set -e
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# 1. tools / tests を触ったらテスト
+if echo "$staged" | grep -qE '^(tools|tests)/'; then
+    echo "pre-commit: テスト"
+    python3 -m unittest discover -s tests -q
+fi
+
+# 2. ontology.yaml / 雛形を触ったら生成物と雛形の鮮度
+if echo "$staged" | grep -qE '^(ontology\.yaml|templates/|schema\.md)'; then
+    echo "pre-commit: schema.md と雛形の同期"
+    python3 tools/giji.py schema --check --check-samples --check-templates
+fi
+
+# 3. lint（error で落ちる。warning は落とさない）
+# `.fixture` があるディレクトリは教材。意図的に error を含むので自動検査から外す。
+for project in projects/*/; do
+    [ -d "$project" ] || continue
+    [ -f "$project/.fixture" ] && continue
+    echo "pre-commit: lint $project"
+    python3 tools/giji.py lint --root "$project"
+done
+
+# 4. ビューの鮮度
+for project in projects/*/; do
+    [ -d "$project" ] || continue
+    [ -f "$project/.fixture" ] && continue
+    if [ -d "$project/views" ]; then
+        python3 tools/giji.py views --root "$project" --check
+    fi
+done
+
+# 5. 不変層 — 文字起こし原本と LOG カードの改変を拒む（追加・削除は許す）
+changed=$(git diff --cached --name-only --diff-filter=M \
+    | grep -E 'meetings/[^/]+/(transcript\.md|logs/LOG-[^/]+\.md)$' || true)
+if [ -n "$changed" ]; then
+    echo "pre-commit: 不変層が書き換えられている"
+    echo "$changed" | sed 's/^/  /'
+    echo ""
+    echo "LOG はすべての引用の照合先です。記録の側が誤っていたと判断した場合だけ、"
+    echo "--no-verify を明示して通してください。"
+    exit 1
+fi
+
+echo "pre-commit: 通過"

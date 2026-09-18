@@ -360,6 +360,15 @@ class Wiki:
     # ------------------------------------------------------------ ビュー
 
     @property
+    def is_fixture(self):
+        """教材データか。`.fixture` があるディレクトリは自動チェックの対象外。
+
+        example は意図的に引用不一致を含む（verify_quotes の動作を見せるため）。
+        これを自動チェックに含めると、pre-commit が常に落ちて誰も commit できない。
+        """
+        return (self.root / ".fixture").exists()
+
+    @property
     def views_dir(self):
         return self.root / "views"
 

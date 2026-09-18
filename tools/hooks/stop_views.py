@@ -39,7 +39,7 @@ def main():
             if not os.path.isdir(root):
                 continue
             wiki = Wiki(root, ontology)
-            if not wiki.cards:
+            if not wiki.cards or wiki.is_fixture:
                 continue
             # カードより新しいビューしか無いならスキップ（毎ターン全書き換えしない）
             newest = wiki.newest_card_mtime()
