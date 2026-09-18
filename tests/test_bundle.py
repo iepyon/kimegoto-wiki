@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""入力バンドルのテスト。
+
+顧客提出版のフィルタは、漏れたら契約上の事故になる。ここは厚く押さえる。
+"""
+
+import datetime
+import unittest
+
+from tests.fixtures import WikiTestCase
+from tools.bundle import Bundle
+
+TODAY = datetime.date(2026, 9, 18)
+LOG = ("LOG", "LOG-20260918-01", {})
+MTG = "MTG-20260918"
+
+
+class BundleTestCase(WikiTestCase):
+    def bundle(self, cards):
+        return Bundle(self.wiki(cards), TODAY)
+
+
+class MinutesInputTest(BundleTestCase):
+    CARDS = [
+        LOG,
+        ("DEC", "DEC-001", {"title": "OIDC に寄せる", "代替案": [
+            {"案": "AD直結", "却下理由": "固定IPのみ", "引用": "そこは厳しいですね",
+             "信頼度": "逐語あり"},
+            {"案": "自前実装", "却下理由": "記録なし", "引用": "自前もありますね",
+             "信頼度": "推測"}]}),
+        ("DEC", "DEC-002", {"title": "推測の決定", "信頼度": "推測"}),
+        ("Q", "Q-001", {}),
+        ("ACT", "ACT-001", {"担当": "甲社", "期限": "2026-10-02"}),
+        ("CON", "CON-001", {"内容": "自社の制約", "所在": "自社側", "種類": "expectation",
+                            "硬度": "懸濁"}),
+        ("CON", "CON-002", {"内容": "顧客側の制約"}),
+    ]
+
+    def test_社内版はすべて出す(self):
+        text = self.bundle(self.CARDS).minutes_input(MTG, "internal")
+        self.assertIn("DEC-001", text)
+        self.assertIn("推測の決定", text)
+        self.assertIn("自社の制約", text)
+        self.assertIn("そこは厳しいですね", text)
+        self.assertIn("## 議論の経緯（LOG）", text)
+
+    def test_顧客版は推測の決定を落とす(self):
+        text = self.bundle(self.CARDS).minutes_input(MTG, "customer")
+        self.assertNotIn("推測の決定", text)
+
+    def test_顧客版は自社側の制約を落とす(self):
+        text = self.bundle(self.CARDS).minutes_input(MTG, "customer")
+        self.assertNotIn("自社の制約", text)
+        self.assertIn("顧客側の制約", text)
+
+    def test_顧客版は記録なしの代替案を落とす(self):
+        text = self.bundle(self.CARDS).minutes_input(MTG, "customer")
+        self.assertIn("AD直結", text)
+        self.assertNotIn("自前実装", text)
+
+    def test_顧客版はカードIDを出さない(self):
+        text = self.bundle(self.CARDS).minutes_input(MTG, "customer")
+        for card_id in ("DEC-001", "Q-001", "ACT-001", "CON-002", "LOG-20260918-01"):
+            self.assertNotIn(card_id, text, card_id)
+
+    def test_顧客版は逐語引用を出さない(self):
+        text = self.bundle(self.CARDS).minutes_input(MTG, "customer")
+        self.assertNotIn("そこは厳しいですね", text)
+        self.assertNotIn("## 議論の経緯", text)
+
+    def test_顧客版は役割を社名に丸める(self):
+        text = self.bundle(self.CARDS).minutes_input(MTG, "customer")
+        self.assertNotIn("顧客PM", text)
+        self.assertIn("甲社", text)
+
+    def test_顧客版は落とした件数だけを脚注に残す(self):
+        bundle = self.bundle(self.CARDS)
+        text = bundle.minutes_input(MTG, "customer")
+        self.assertIn("機械的に落としたもの（3件）", text)
+        self.assertEqual(len(bundle.dropped), 3)   # 推測の決定 / 自社側の制約 / 記録なしの代替案
+
+    def test_脚注に落としたものの中身を書かない(self):
+        # この束はそのまま顧客提出版の材料になる。脚注に ID や名前を残すと
+        # LLM がそれを本文に混ぜうる。内訳は標準エラーへ。
+        text = self.bundle(self.CARDS).minutes_input(MTG, "customer")
+        footer = text.split("機械的に落としたもの")[1]
+        for leaked in ("DEC-001", "DEC-002", "CON-001", "自前実装", "自社の制約", "推測の決定"):
+            self.assertNotIn(leaked, footer, leaked)
+
+    def test_顧客版で担当が空なら空のまま(self):
+        text = self.bundle([LOG, ("ACT", "ACT-001", {"担当": ""})]).minutes_input(MTG, "customer")
+        self.assertNotIn("不明", text)
+
+    def test_顧客版はみなし確定の一文を入れる(self):
+        text = self.bundle(self.CARDS).minutes_input(MTG, "customer")
+        self.assertIn("3営業日以内にご異議のない場合", text)
+
+    def test_社内版にみなし確定の一文は要らない(self):
+        self.assertNotIn("営業日以内", self.bundle(self.CARDS).minutes_input(MTG, "internal"))
+
+    def test_繰越アクションを拾う(self):
+        cards = [LOG, ("LOG", "LOG-20261002-01", {"meeting": "MTG-20261002"}),
+                 ("ACT", "ACT-001", {"status": "進行中", "title": "前回からの宿題"})]
+        text = self.bundle(cards).minutes_input("MTG-20261002", "internal")
+        self.assertIn("## 前回からの繰越アクション", text)
+        self.assertIn("前回からの宿題", text)
+
+    def test_完了したアクションは繰り越さない(self):
+        cards = [LOG, ("LOG", "LOG-20261002-01", {"meeting": "MTG-20261002"}),
+                 ("ACT", "ACT-001", {"status": "完了", "title": "済んだ宿題"})]
+        text = self.bundle(cards).minutes_input("MTG-20261002", "internal")
+        self.assertNotIn("済んだ宿題", text)
+
+    def test_存在しない会議は例外(self):
+        with self.assertRaises(KeyError):
+            self.bundle([LOG]).minutes_input("MTG-20991231")
+
+
+class PromoteInputTest(BundleTestCase):
+    """昇格の門は、プロンプトの注意書きではなく入力の欠落で閉じる。"""
+
+    def test_なぜ未記入の決定は材料に入らない(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001",
+                                  {"title": "理由のない決定", "なぜ": ""})]).promote_input(MTG)
+        self.assertNotIn("## 決定と却下理由", text.split("昇格の門で落とした")[1])
+        self.assertIn("昇格の門で落とした決定（1件）", text)
+        self.assertIn("理由のない決定", text.split("昇格の門で落とした")[1])
+
+    def test_なぜが書かれた決定は材料に入る(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {
+            "title": "理由のある決定", "なぜ": "失効保証を IdP 側に寄せるため"})]).promote_input(MTG)
+        head = text.split("昇格の門で落とした")[0]
+        self.assertIn("理由のある決定", head)
+        self.assertIn("失効保証を IdP 側に寄せるため", head)
+        self.assertIn("昇格の門で落とした決定（0件）", text)
+
+    def test_カードを作れとは書かない(self):
+        text = self.bundle([LOG]).promote_input(MTG)
+        self.assertIn("カードは作らない", text)
+
+    def test_既存の用語を渡す(self):
+        text = self.bundle([LOG, ("TERM", "TERM-001", {})]).promote_input(MTG)
+        self.assertIn("OIDC", text)
+        self.assertIn("オイデッシー", text)
+
+
+class ReviewTest(BundleTestCase):
+    def test_判定保留を最初に出す(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {"範囲": "判定保留"})]).review(MTG)
+        self.assertLess(text.index("2-0"), text.index("2-1"))
+        self.assertIn("範囲: 判定保留", text)
+        self.assertIn("DEC-001", text)
+
+    def test_該当0件の節は0件とだけ出す(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {"範囲": "当初合意内",
+                                                     "なぜ": "理由"})]).review(MTG)
+        self.assertIn("0件", text)
+
+    def test_なぜ未記入の決定に穴埋め形を添える(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {"なぜ": ""})]).review(MTG)
+        self.assertIn("〈場面〉で〈懸念〉に直面し", text)
+
+    def test_LLMに理由を書かせない旨を冒頭に置く(self):
+        text = self.bundle([LOG]).review(MTG)
+        head = text.split("## 2-0")[0]
+        self.assertIn("LLM に書かせない", head)
+
+    def test_記録なしの代替案を提示する(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {"代替案": [
+            {"案": "自前実装", "却下理由": "記録なし", "引用": "自前もありますね"}]})]).review(MTG)
+        self.assertIn("記録なし", text)
+        self.assertIn("自前実装", text)
+
+    def test_時間配分を出す(self):
+        text = self.bundle([LOG]).review(MTG)
+        for minutes in ("3分", "4分", "8分", "6分"):
+            self.assertIn(minutes, text)
+
+    def test_未完了アクションを出す(self):
+        text = self.bundle([LOG, ("ACT", "ACT-001", {"担当": "", "期限": ""})]).review(MTG)
+        self.assertIn("ACT-001", text)
+
+
+if __name__ == "__main__":
+    unittest.main()

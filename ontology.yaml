@@ -1,0 +1,413 @@
+# ============================================================
+# ontology.yaml — 型・フィールド・語彙・関係・導出の唯一の正本
+#
+# ここに置くのは「機械が実際に評価するもの」だけ。
+# なぜそのフィールドが要るのかという論述は schema.md にある。
+# schema.md の表とサンプル frontmatter は、このファイルから生成される。
+#
+# 数値の閾値をコードに書かない。すべて thresholds に置く。
+# ============================================================
+
+version: 1
+
+# ------------------------------------------------------------
+# 7種のカード
+#   layer  : flow  = 会議ごとに生成 / stock = 昇格承認を経て育つ
+#   dir    : 置き場ディレクトリ（LOG のみ meetings/MTG-*/logs/ 配下）
+#   label  : 生成物やメッセージで使う日本語名
+#   headline: そのカードの見出しになるフィールド（DEC/Q/ACT は title、
+#             CON/ASM は 内容、TERM は 正式。ここが型ごとに違う）
+# ------------------------------------------------------------
+
+types:
+
+  LOG:
+    label: 会話ログ
+    layer: flow
+    dir: logs
+    nested-under: meetings
+    id: "^LOG-\\d{8}-\\d{2}$"
+    type-value: log
+    headline: title
+    has-quote: false
+
+  DEC:
+    label: 決定事項
+    layer: flow
+    dir: decisions
+    id: "^DEC-\\d{3}$"
+    type-value: decision
+    headline: title
+    has-quote: true
+
+  Q:
+    label: 未定事項
+    layer: flow
+    dir: questions
+    id: "^Q-\\d{3}$"
+    type-value: question
+    headline: title
+    has-quote: true
+
+  ACT:
+    label: アクション
+    layer: flow
+    dir: actions
+    id: "^ACT-\\d{3}$"
+    type-value: action
+    headline: title
+    has-quote: true
+
+  CON:
+    label: 制約
+    layer: stock
+    dir: constraints
+    id: "^CON-\\d{3}$"
+    type-value: constraint
+    headline: 内容
+    has-quote: true
+
+  ASM:
+    label: 前提
+    layer: stock
+    dir: assumptions
+    id: "^ASM-\\d{3}$"
+    type-value: assumption
+    headline: 内容
+    has-quote: true
+
+  TERM:
+    label: 用語
+    layer: stock
+    dir: terms
+    id: "^TERM-\\d{3}$"
+    type-value: term
+    headline: 正式
+    has-quote: false
+
+meetings:
+  id: "^MTG-\\d{8}$"
+  dir: meetings
+  transcript: transcript.md
+  segments: segments.yaml
+  logs-dir: logs
+  candidates: promote-candidates.yaml
+
+# ------------------------------------------------------------
+# 語彙
+#   ここに無い値は lint が error にする。
+#   空文字を許すかどうかは fields の required で決める（語彙側では許さない）。
+# ------------------------------------------------------------
+
+enums:
+  LOG種別: [議論, 報告, 確認, 雑談]
+  DEC状態: [決定, 保留, 覆された]
+  Q状態: [未決, 解決, 取り下げ]
+  ACT状態: [未着手, 進行中, 完了, 遅延, 取り下げ]
+  ストック状態: [有効, 失効]
+  ASM状態: [有効, 崩れた, 確認中]
+  決定種別: [交渉可能, 技術判断, 契約制約]
+  範囲: [当初合意内, "範囲外(追加)", 判定保留]
+  信頼度: [逐語あり, 言及のみ, 推測]
+  作らない: [該当なし, 記録なし, 未記入]
+  制約種類: [property, expectation]
+  所在: [自社側, 顧客側, 協力会社, 契約]
+  硬度: [溶液, 懸濁, 沈殿, 岩盤]
+  脆弱性: [高, 中, 低]
+  対策種別: [shaping, hedging]
+
+# ------------------------------------------------------------
+# フィールド
+#   kind    : id | text | enum | date | ref | ref-list | str-list
+#             | struct-list | quote | time-range
+#   記入主体 : 自動（LLM が埋める）| 人間（②の確認で埋める）| 導出（機械が決める）
+#   ref     : 参照先の型（ref / ref-list のみ）
+#   free    : true なら enum の値以外も許す（`作らない` の <内容> のため）
+# ------------------------------------------------------------
+
+fields:
+
+  LOG:
+    id:      { kind: id, required: true, 記入主体: 自動 }
+    type:    { kind: text, required: true, 記入主体: 自動 }
+    meeting: { kind: ref, ref: MTG, required: true, 記入主体: 自動 }
+    title:   { kind: text, required: true, 記入主体: 自動 }
+    種別:    { kind: enum, enum: LOG種別, required: true, 記入主体: 自動 }
+    時刻:    { kind: time-range, required: false, 記入主体: 自動 }
+    参加役割: { kind: str-list, required: true, 記入主体: 自動 }
+
+  DEC:
+    id:         { kind: id, required: true, 記入主体: 自動 }
+    type:       { kind: text, required: true, 記入主体: 自動 }
+    title:      { kind: text, required: true, 記入主体: 自動 }
+    status:     { kind: enum, enum: DEC状態, required: true, 記入主体: 自動 }
+    決定日:     { kind: date, required: true, 記入主体: 自動 }
+    決定の所在: { kind: text, required: true, 記入主体: 自動 }
+    会議体:     { kind: text, required: true, 記入主体: 導出 }
+    種別:       { kind: enum, enum: 決定種別, required: true, 記入主体: 導出 }
+    引用:       { kind: quote, required: true, 記入主体: 自動 }
+    信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動 }
+    derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動 }
+    範囲:       { kind: enum, enum: 範囲, required: true, 記入主体: 自動 }
+    確定日:     { kind: date, required: false, 記入主体: 人間 }
+    なぜ:       { kind: text, required: false, 記入主体: 人間 }
+    受容した不利: { kind: text, required: false, 記入主体: 人間 }
+    確認方法:   { kind: text, required: false, 記入主体: 人間 }
+    作らない:   { kind: enum, enum: 作らない, free: true, required: false, 記入主体: 人間 }
+    前提:       { kind: ref-list, ref: ASM, required: false, 記入主体: 人間 }
+    制約:       { kind: ref-list, ref: CON, required: false, 記入主体: 人間 }
+    superseded_by: { kind: ref, ref: DEC, required: false, 記入主体: 人間 }
+    代替案:     { kind: struct-list, struct: 代替案, required: false, 記入主体: 自動 }
+
+  Q:
+    id:         { kind: id, required: true, 記入主体: 自動 }
+    type:       { kind: text, required: true, 記入主体: 自動 }
+    title:      { kind: text, required: true, 記入主体: 自動 }
+    status:     { kind: enum, enum: Q状態, required: true, 記入主体: 自動 }
+    確認先:     { kind: text, required: true, 記入主体: 自動 }
+    対立当事者: { kind: str-list, required: false, 記入主体: 自動 }
+    初出:       { kind: date, required: true, 記入主体: 自動 }
+    最終言及:   { kind: date, required: true, 記入主体: 自動 }
+    引用:       { kind: quote, required: true, 記入主体: 自動 }
+    信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動 }
+    derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動 }
+    resolved_by: { kind: ref, ref: DEC, required: false, 記入主体: 自動 }
+
+  ACT:
+    id:         { kind: id, required: true, 記入主体: 自動 }
+    type:       { kind: text, required: true, 記入主体: 自動 }
+    title:      { kind: text, required: true, 記入主体: 自動 }
+    担当:       { kind: text, required: false, 記入主体: 人間 }
+    期限:       { kind: date, required: false, 記入主体: 人間 }
+    status:     { kind: enum, enum: ACT状態, required: true, 記入主体: 人間 }
+    対策種別:   { kind: enum, enum: 対策種別, required: false, 記入主体: 自動 }
+    引用:       { kind: quote, required: true, 記入主体: 自動 }
+    信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動 }
+    derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動 }
+    関連:       { kind: ref-list, ref: any, required: false, 記入主体: 自動 }
+    更新履歴:   { kind: struct-list, struct: 更新履歴, required: false, 記入主体: 人間 }
+    issue:      { kind: text, required: false, 記入主体: 導出 }
+
+  CON:
+    id:         { kind: id, required: true, 記入主体: 自動 }
+    type:       { kind: text, required: true, 記入主体: 自動 }
+    内容:       { kind: text, required: true, 記入主体: 自動 }
+    種類:       { kind: enum, enum: 制約種類, required: true, 記入主体: 自動 }
+    所在:       { kind: enum, enum: 所在, required: true, 記入主体: 導出 }
+    硬度:       { kind: enum, enum: 硬度, required: true, 記入主体: 導出 }
+    失効条件:   { kind: text, required: false, 記入主体: 自動 }
+    影響する決定: { kind: ref-list, ref: DEC, required: false, 記入主体: 自動 }
+    derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動 }
+    引用:       { kind: quote, required: false, 記入主体: 自動 }
+    承認:       { kind: date, required: true, 記入主体: 人間 }
+    status:     { kind: enum, enum: ストック状態, required: true, 記入主体: 人間 }
+
+  ASM:
+    id:         { kind: id, required: true, 記入主体: 自動 }
+    type:       { kind: text, required: true, 記入主体: 自動 }
+    内容:       { kind: text, required: true, 記入主体: 自動 }
+    崩れたら見直す決定: { kind: ref-list, ref: DEC, required: false, 記入主体: 自動 }
+    脆弱性:     { kind: enum, enum: 脆弱性, required: true, 記入主体: 自動 }
+    signpost:   { kind: text, required: false, 記入主体: 自動 }
+    次回確認日: { kind: date, required: false, 記入主体: 人間 }
+    引用:       { kind: quote, required: true, 記入主体: 自動 }
+    信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動 }
+    derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動 }
+    最終確認:   { kind: date, required: true, 記入主体: 人間 }
+    status:     { kind: enum, enum: ASM状態, required: true, 記入主体: 人間 }
+
+  TERM:
+    id:       { kind: id, required: true, 記入主体: 自動 }
+    type:     { kind: text, required: true, 記入主体: 自動 }
+    正式:     { kind: text, required: true, 記入主体: 自動 }
+    読み:     { kind: text, required: false, 記入主体: 人間 }
+    表記揺れ: { kind: str-list, required: false, 記入主体: 自動 }
+    定義:     { kind: text, required: false, 記入主体: 人間 }
+    初出:     { kind: ref, ref: LOG, required: false, 記入主体: 自動 }
+    意味が確定した決定: { kind: ref, ref: DEC, required: false, 記入主体: 自動 }
+
+# ------------------------------------------------------------
+# 構造化フィールド（配列 of マッピング）
+# ------------------------------------------------------------
+
+structs:
+
+  代替案:
+    keys: [案, 却下理由, 引用, 信頼度]
+    required: [案, 却下理由]
+    enums:
+      信頼度: 信頼度
+
+  更新履歴:
+    free-key: date
+    required: []
+
+# ------------------------------------------------------------
+# 型付きリンク
+#   inverse を持つものは双方向の一致を lint が見る。
+# ------------------------------------------------------------
+
+relations:
+  derived_from:       { domain: [DEC, Q, ACT, CON, ASM], range: [LOG] }
+  前提:               { domain: [DEC], range: [ASM], inverse: 崩れたら見直す決定 }
+  崩れたら見直す決定: { domain: [ASM], range: [DEC], inverse: 前提 }
+  制約:               { domain: [DEC], range: [CON], inverse: 影響する決定 }
+  影響する決定:       { domain: [CON], range: [DEC], inverse: 制約 }
+  resolved_by:        { domain: [Q], range: [DEC] }
+  superseded_by:      { domain: [DEC], range: [DEC] }
+  関連:               { domain: [ACT], range: [DEC, Q, CON, ASM] }
+  初出:               { domain: [TERM], range: [LOG] }
+  意味が確定した決定: { domain: [TERM], range: [DEC] }
+  meeting:            { domain: [LOG], range: [MTG] }
+
+# ------------------------------------------------------------
+# 導出される関係
+#
+#   カード ↔ 会議は **多対多**である。
+#   DEC / Q / ACT は derived_from で LOG を指し、LOG は meeting で MTG を指す。
+#   そして「同じ論点が複数回の会議にまたがっても1枚のカードが更新されていく」
+#   （README）以上、1枚の DEC が複数の MTG の LOG を参照する状態は正常であり、
+#   1つの MTG からは当然いくつもの DEC が生える。
+#
+#   この多対多は frontmatter に直接は現れない。辿って得る関係なので、
+#   カード側に meeting フィールドを持たせない（持たせると、2回目の会議で
+#   更新したときに1つしか書けず、嘘になる）。
+#
+#   Q の 初出 / 最終言及 は、この多対多を日付に射影したもの。
+#   だから「初出 = 最古の会議日」「最終言及 = 最新の会議日」で照合できる。
+# ------------------------------------------------------------
+
+derived-relations:
+
+  会議:
+    domain: [DEC, Q, ACT, CON, ASM]
+    range: [MTG]
+    cardinality: many-to-many
+    via: [derived_from, meeting]
+    date-anchors:
+      Q: { first: 初出, last: 最終言及 }
+      DEC: { first: 決定日 }
+      CON: { last: 承認 }
+      ASM: { last: 最終確認 }
+
+# ------------------------------------------------------------
+# 状態の整合
+#   参照が埋まっているのに状態が追随していない、を検出するための宣言。
+# ------------------------------------------------------------
+
+status-implications:
+  - { type: Q,   when-filled: resolved_by,   status: 解決 }
+  - { type: DEC, when-filled: superseded_by, status: 覆された }
+
+# ------------------------------------------------------------
+# 導出
+#   硬度は入力させず 種類 × 所在 から機械的に決める。
+#
+#   注: schema.md の表は「property × 契約/法令 → 岩盤」「property × 顧客側/
+#   その他 → 沈殿」「expectation × 顧客側 → 沈殿」「expectation × 自社側/
+#   協力会社 → 懸濁」の4行。所在の語彙4値との組み合わせ8通りのうち
+#   expectation × 契約 はどの行にも当たらない。推測で埋めず未定義のままにし、
+#   lint は「導出表に無い組み合わせ」として warning を出す。
+#   語彙 溶液 もどの組み合わせからも出ない（硬度の語彙にはあるが導出されない）。
+# ------------------------------------------------------------
+
+derivations:
+
+  硬度:
+    from: [種類, 所在]
+    table:
+      property/契約: 岩盤
+      property/顧客側: 沈殿
+      property/自社側: 沈殿
+      property/協力会社: 沈殿
+      expectation/顧客側: 沈殿
+      expectation/自社側: 懸濁
+      expectation/協力会社: 懸濁
+
+  種別:
+    from: role-mapping
+    key: 決定の所在
+    source-field: 決定の種別
+
+  所在:
+    from: role-mapping
+    key: 発言役割
+    source-field: 所属
+
+# ------------------------------------------------------------
+# 顧客提出版で落とすもの（render_minutes.md の「出さないもの」表）
+#   機械判定できるものはここに宣言し、CLI が落とす。
+#   LLM の遵守に賭けない（漏れたら契約上の事故になる）。
+# ------------------------------------------------------------
+
+editions:
+
+  internal:
+    exclude: []
+
+  customer:
+    exclude:
+      - { type: DEC, field: 信頼度, value: 推測, reason: 未確認のものを合意事項として提示できない }
+      - { type: CON, field: 所在, value: 自社側, reason: 自社の都合を対外に開示しない }
+    exclude-alternatives:
+      - { field: 却下理由, value: 記録なし, reason: 記録の不備を対外文書に書けない }
+      - { field: 信頼度, value: 言及のみ, reason: 同上 }
+      - { field: 信頼度, value: 推測, reason: 同上 }
+    # 内部管理情報と、発言録に当たるもの。render_minutes.md の「出さないもの」表。
+    #   - 逐語引用と LOG は原則出さない
+    #   - カード ID はすべて内部管理情報（本体の id だけでなく、参照フィールドも）
+    #   - 硬度・所在・信頼度・種類・範囲は内部メタ
+    drop-fields:
+      - id
+      - derived_from
+      - 引用
+      - 信頼度
+      - 硬度
+      - 所在
+      - 種類
+      - 範囲
+      - 会議体
+      - 前提
+      - 制約
+      - superseded_by
+      - resolved_by
+      - 崩れたら見直す決定
+      - 影響する決定
+      - 関連
+      - 更新履歴
+      - issue
+      - 対立当事者
+      - 対策種別
+      - 承認
+      - 最終確認
+      - 次回確認日
+      - signpost
+      - 失効条件
+    # 値が内部状態を表しているだけのもの。フィールドごと落とすのではなく、
+    # この値のときだけ落とす。
+    drop-field-values:
+      - { field: 作らない, value: 未記入 }
+      - { field: 作らない, value: 記録なし }
+    drop-sections: [記録の状態, 議論の経緯]
+    role-to-company: true
+    deemed-confirmation: true
+
+# ------------------------------------------------------------
+# 閾値
+#   コードにも lint のメッセージにも数値を再掲しない。正本はここ。
+# ------------------------------------------------------------
+
+thresholds:
+  q-stale-days: 28
+  dec-unconfirmed-days: 14
+  asm-review-overdue-days: 0
+  term-min-occurrences: 3
+  deemed-confirmation-business-days: 3
+
+# signpost が「事象または閾値」になっているかを機械で見るのは原理的に無理なので、
+# 否定リストで明らかに足りないものだけを拾う。運用しながら語を足す。
+signpost-vague-words: [注意, 監視, 確認する, 見ておく, 意識する, 気をつける, 把握する]
+
+# 「前向きに検討します」の類。DEC ではなく Q に落とすべき表現。
+# decision-guide.md の境界例に対応する。
+deferral-phrases: [前向きに検討, 持ち帰り, 持ち帰ります, 調整します, 一旦置い, 検討します]
