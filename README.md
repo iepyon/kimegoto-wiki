@@ -94,15 +94,18 @@ README を確認した結果、**YAML フロントマターもトレーサビリ
 | `templates/project/role-mapping.yaml` | 役割 → 所属・社名・決定権の雛形。案件ディレクトリにコピーして**最初に埋める**（社名も決定権も案件ごとに違うので、キットのルートには置かない） |
 | `templates/card/*.md` | 7種のカードの雛形 |
 
-### プロンプト
+### 抽出の判定基準
 
-| ファイル | 内容 |
+4つのパスの判定基準は、それぞれのスキルの中にある（`.claude/skills/<名前>/SKILL.md`）。
+手順と判定基準を1枚にまとめてあるので、そのパスを回すときはそれだけを読めばよい。
+
+| スキル | 判定基準の中身 |
 |---|---|
-| `prompts/pass1_segment.md` | 論点の切り出し |
-| `prompts/pass2_log.md` | LOG カードの生成・検証可能な事実の列挙・未知語検出 |
-| `prompts/pass3_extract.md` | DEC / Q / ACT の抽出・欠落ガード |
-| `prompts/pass4_promote.md` | CON / ASM / TERM の昇格候補 |
-| `prompts/render_minutes.md` | 議事録のレンダリング（社内版／顧客提出版・みなし確定） |
+| `segment` | 論点の定義・境界のシグナル・種別の判定・見出しの付け方 |
+| `log-cards` | 逐語の改変規則（削ってよい／言い換え禁止）・検証可能な事実の列挙・未知語の検出 |
+| `extract` | 非対称の原則・欠落ガード・役割別の解釈ルール・引用の優先順位・却下パターンの3段階検出・7種への振り分け |
+| `promote` | 昇格の門・制約の判定テスト・前提の検出トリガー・signpost の定義・用語の分類 |
+| `minutes` | 社内版と顧客提出版の書式・出せないものの一覧・みなし確定の一文 |
 
 ### 道具（Python 3・標準ライブラリのみ）
 
@@ -206,7 +209,7 @@ Claude Code では `/review` スキルが進行する。
 ### ③ 議事録（LLM・5分）
 
 `python3 tools/giji.py minutes-input --meeting MTG-YYYYMMDD` で材料を組み立て、
-`prompts/render_minutes.md` で社内版を生成する。リーダのレビュー後、必要なら
+`/minutes` スキルで社内版を生成する。リーダのレビュー後、必要なら
 `--edition customer` で顧客提出版を生成して PDF 化。
 
 **顧客提出版で出せない情報は CLI が機械的に落とす**（`ontology.yaml` の

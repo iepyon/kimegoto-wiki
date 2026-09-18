@@ -5,7 +5,8 @@
 
 **このファイルには、ここにしか無い規約だけを書く。** 型・フィールド・語彙・閾値の
 正本は `ontology.yaml`、何を DEC とするかの正本は `decision-guide.md`、抽出の
-手順の正本は `prompts/`、本文の節構成の正本は `templates/card/`。そちらにある
+各パスの手順と判定基準の正本は `.claude/skills/<名前>/SKILL.md`、本文の節構成の正本は
+`templates/card/`。そちらにある
 内容をここへ写さない（写した瞬間に多重管理とドリフトが始まる）。
 
 ---
@@ -16,7 +17,7 @@
 |---|---|---|
 | **不変層** | `projects/<slug>/meetings/*/transcript.md`、`meetings/*/logs/LOG-*.md` | 生成は Pass 1–2。**一度コミットしたら書き換えない。** PreToolUse フックが止める |
 | **記録層** | `projects/<slug>/` のカード群 | 規約に従って作成・更新する |
-| **設定層** | `ontology.yaml`、`prompts/`、`templates/`、`decision-guide.md` | 人間が合意のうえで変える |
+| **設定層** | `ontology.yaml`、`.claude/skills/`、`templates/`、`decision-guide.md` | 人間が合意のうえで変える |
 | **案件の設定** | `projects/<slug>/role-mapping.yaml` | 案件ごとに持つ。キットのルートにフォールバックしない |
 | **生成物** | `projects/<slug>/views/*.md`、`schema.md` の `<!-- generated -->` ブロック | **手で編集しない。** 再生成で消える |
 
