@@ -1,0 +1,7 @@
+meeting: MTG-20260731
+unknown_terms:
+  - 語: pgvector
+    出現回数: 6
+    初出: LOG-20260731-02
+    文脈: Postgresにpgvectorという拡張を入れる方式
+    推定: 製品名。新規用語の可能性

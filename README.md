@@ -119,6 +119,8 @@ README を確認した結果、**YAML フロントマターもトレーサビリ
 | `giji minutes-input --meeting MTG-... [--edition customer]` | 議事録の材料（顧客版の除外は機械が行う） |
 | `giji promote-input --meeting MTG-...` | 昇格候補の材料（**`なぜ` 未記入の決定を落とす**） |
 | `giji new <型> --write` | 雛形からカードを起こす（採番つき） |
+| `giji update <ID> --set k=v` | 既存カードの書き換え（`--add-derived` / `--log` / `--dry-run`） |
+| `giji confirm --meeting MTG-... --sent YYYY-MM-DD` | みなし確定の期限を `確定日` に書き戻す |
 | `giji issue --act ACT-NNN` | GitHub Issue の下書き（`--create` で起票） |
 | `giji schema --check` | `ontology.yaml` と `schema.md` / 雛形の同期 |
 
@@ -132,6 +134,10 @@ README を確認した結果、**YAML フロントマターもトレーサビリ
 | `.claude/skills/` | 4パス・確認②・議事録・アジェンダ・Issue・lint の9スキル |
 | `.claude/settings.json` | 不変層のガード（PreToolUse）、ビュー再生成と lint（Stop） |
 | `.githooks/pre-commit` | テスト・生成物の鮮度・lint・不変層の5段 |
+
+案件ディレクトリに `.fixture` を置くと教材として自動検査から外れ、`.wip` を置くと
+**作りかけ**として外れる。案件を作っている途中は error が出て当たり前なので、
+`.wip` を置いて作り、error 0 になってから外す。
 
 ---
 
@@ -175,10 +181,13 @@ Pass 2  →  LOG カード生成 + 未知語リスト
 Pass 3  →  論点ごとに反復実行（DEC / Q / ACT）
 python3 verify_quotes.py --fix     ← 引用を検証、不一致は「推測」に降格
 python3 tools/giji.py lint         ← error 0 を確認
-Pass 4  →  昇格候補リスト
 ```
 
-Claude Code では `/segment` `/log-cards` `/extract` `/promote` のスキルが
+**Pass 4 は①では回さない。** `giji promote-input` は理由がどこにも記録されていない
+決定を材料から落とす。①の時点では `なぜ` が必ず未記入なので、材料が痩せる。
+②の 2-2 で `なぜ` を書いたあと、2-4 の直前に回す（下表）。
+
+Claude Code では `/segment` `/log-cards` `/extract` のスキルが
 それぞれのパスに対応する。
 
 ### ② 確認（人間・25分／**会議当日か翌日に固定**）
@@ -191,7 +200,7 @@ Claude Code では `/segment` `/log-cards` `/extract` `/promote` のスキルが
 | 2-1 | `review_required` と欠落ガードの理由を確認（拾い漏れがないか）／`信頼度: 推測` を確認 | 4分 |
 | 2-2 | DEC の `なぜ` を1行書く（Y-statement の穴埋め）／`却下理由: 記録なし` を埋められるなら埋める／`作らない` の3値を選ぶ | 8分 |
 | 2-3 | ACT の担当・期限を入れる（空欄が正常な出力）／前回 ACT の status を更新 | 4分 |
-| 2-4 | Pass 4 の昇格候補を yes/no で承認（ASM は `脆弱性: 高` のものだけ） | 6分 |
+| 2-4 | **ここで Pass 4（`/promote`）を回し**、出た昇格候補を yes/no で承認（ASM は `脆弱性: 高` のものだけ） | 6分 |
 
 `python3 tools/giji.py review --meeting MTG-YYYYMMDD` が、この順序で
 **該当するカードだけ**を並べて出す（0件の節は「0件」とだけ出る）。
@@ -200,7 +209,9 @@ Claude Code では `/review` スキルが進行する。
 **`なぜ` を書かないことのコスト**（必須フィールドを作らずに記入を促す仕掛け）
 
 - `なぜ` 未記入の DEC は**次回アジェンダ冒頭に自動掲示される**
-- `なぜ` 未記入の DEC は **CON / ASM への昇格候補になれない**（その制約が将来の議論で効かない）
+- `なぜ` も `代替案[].却下理由` も無い DEC は **CON / ASM への昇格候補になれない**
+  （その制約が将来の議論で効かない）。却下理由が逐語で取れている決定は通る —
+  CON の中身は捨てた案の理由であって、採った案の理由ではないため
 
 根拠：Lee (1997) は「コスト負担者が受益者と同一でないとき、費用対効果のあるシステムを
 提供することは一層困難になる」とし、処方の1つにインセンティブを挙げている。

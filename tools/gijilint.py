@@ -572,12 +572,21 @@ def check_scope_pending_q(ctx):
 
     同じ LOG から生えた未決 Q があるかで見る。DEC → Q の直接の参照は
     設計上持たないので、これ以上厳密には判定できない。だから warning。
+
+    対象は `種別: 交渉可能` / `契約制約` に限る。技術判断の範囲を顧客に
+    問う Q は起票しない規約なので（`.claude/skills/extract/SKILL.md`）、
+    ここで鳴らすと消せない warning になる。
     """
+    ASKABLE = ("交渉可能", "契約制約")
     out = []
     pending_questions = [q for q in ctx.of_type("Q") if q.get("status") == "未決"]
     for c in ctx.of_type("DEC"):
         if c.get("範囲") != "判定保留":
             continue
+        if c.get("status") == "覆された":
+            continue          # 覆った決定の範囲は、もう誰にも聞かない
+        if c.get("種別") not in ASKABLE:
+            continue          # 技術判断の範囲は顧客に問わない
         logs = set(c.list("derived_from"))
         if any(logs & set(q.list("derived_from")) for q in pending_questions):
             continue
@@ -761,17 +770,32 @@ def check_log_barren(ctx):
 
     README が「最大のエラー源は幻覚ではなく欠落（89% 対 26%）」とする穴を
     事後に拾う。引用検証は幻覚しか捕まえないので、こちら側が要る。
+
+    `meetings/*/extraction-notes.yaml` に理由が書かれている LOG は鳴らさない。
+    「何も生えないのが正常」と判断した記録があるなら、それ以上言うことはない。
+    ただし `review_required: true` は、判断がついていないという記録なので鳴らす。
     """
     out = []
     referenced = set()
     for c in ctx.of_type("DEC", "Q", "ACT", "CON", "ASM"):
         referenced.update(c.list("derived_from"))
+    notes = ctx.wiki.extraction_notes
     for c in ctx.of_type("LOG"):
         if c.get("種別") not in ("議論", "確認"):
             continue
-        if c.id not in referenced:
+        if c.id in referenced:
+            continue
+        note = notes.get(c.id) or {}
+        if str(note.get("review_required", "")).lower() in ("true", "yes"):
             out.append(_p(check_log_barren, c.id,
-                          "`種別: %s` だがカードが1枚も生えていない（欠落の可能性）" % c.get("種別")))
+                          "カードが1枚も生えておらず、`review_required: true` "
+                          "が立っている（人間の確認待ち）"))
+            continue
+        if (note.get("extraction_empty_reason") or "").strip():
+            continue
+        out.append(_p(check_log_barren, c.id,
+                      "`種別: %s` だがカードが1枚も生えていない（欠落の可能性）。"
+                      "正常なら extraction-notes.yaml に理由を書く" % c.get("種別")))
     return out
 
 

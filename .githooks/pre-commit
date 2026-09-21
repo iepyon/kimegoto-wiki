@@ -24,9 +24,11 @@ fi
 
 # 3. lint（error で落ちる。warning は落とさない）
 # `.fixture` があるディレクトリは教材。意図的に error を含むので自動検査から外す。
+# `.wip` は作りかけの案件。完成するまで error が出るのは当たり前なので外す。
 for project in projects/*/; do
     [ -d "$project" ] || continue
     [ -f "$project/.fixture" ] && continue
+    [ -f "$project/.wip" ] && continue
     echo "pre-commit: lint $project"
     python3 tools/giji.py lint --root "$project"
 done
@@ -35,6 +37,7 @@ done
 for project in projects/*/; do
     [ -d "$project" ] || continue
     [ -f "$project/.fixture" ] && continue
+    [ -f "$project/.wip" ] && continue
     if [ -d "$project/views" ]; then
         python3 tools/giji.py views --root "$project" --check
     fi

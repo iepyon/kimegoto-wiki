@@ -253,6 +253,30 @@ class Wiki:
     def _meeting_ids(self):
         return set(self.meetings)
 
+    @cached_property
+    def extraction_notes(self):
+        """`meetings/*/extraction-notes.yaml` の中身を LOG id で引ける形にする。
+
+        Pass 3 の欠落ガードが「DEC / Q / ACT を1件も出せなかった理由」を書く先。
+        LOG は不変層なので後から書き足せず、カードでもないので、会議ごとの
+        別ファイルに置く（`segments.yaml` と同じ扱い）。
+
+        壊れていても lint 全体を落とさない。読めなければ空として扱う。
+        """
+        out = {}
+        for meeting in self.meetings.values():
+            path = meeting.dir / "extraction-notes.yaml"
+            if not path.is_file():
+                continue
+            try:
+                data = parse(path.read_text(encoding="utf-8")) or {}
+            except (OSError, MiniYamlError):
+                continue
+            for row in data.get("notes") or []:
+                if isinstance(row, dict) and row.get("log"):
+                    out[row["log"]] = row
+        return out
+
     def meetings_of(self, card):
         """そのカードが現れた会議の集合（古い順）。
 

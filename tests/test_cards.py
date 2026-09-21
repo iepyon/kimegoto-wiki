@@ -232,9 +232,26 @@ class ResolveRootTest(unittest.TestCase):
         self.assertEqual(resolve_root(), Path("/tmp").resolve())
 
     def test_既定はexample案件(self):
+        # 開発者の手元の .env に引きずられないよう、キットのルートごと差し替える。
         import os
+        from unittest import mock
         os.environ.pop("GIJI_ROOT", None)
-        self.assertEqual(resolve_root().name, "example")
+        with tempfile.TemporaryDirectory() as tmp:
+            kit = Path(tmp)
+            (kit / "projects" / "example").mkdir(parents=True)
+            with mock.patch.object(schema, "KIT_ROOT", kit):
+                self.assertEqual(resolve_root().name, "example")
+
+    def test_envのCURRENT_PROJECTを見る(self):
+        import os
+        from unittest import mock
+        os.environ.pop("GIJI_ROOT", None)
+        with tempfile.TemporaryDirectory() as tmp:
+            kit = Path(tmp)
+            (kit / "projects" / "other").mkdir(parents=True)
+            (kit / ".env").write_text("CURRENT_PROJECT=other\n", encoding="utf-8")
+            with mock.patch.object(schema, "KIT_ROOT", kit):
+                self.assertEqual(resolve_root().name, "other")
 
 
 if __name__ == "__main__":

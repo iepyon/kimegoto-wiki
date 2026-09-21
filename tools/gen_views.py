@@ -275,6 +275,7 @@ def view_metrics(ctx):
     alternatives = [row for c in decisions for row in c.structs("代替案")
                     if isinstance(row, dict)]
     no_reason = sum(1 for row in alternatives if row.get("却下理由") == "記録なし")
+    silent_alt = sum(1 for row in alternatives if row.get("信頼度") == "推測")
     guessed = sum(1 for c in ctx.of("DEC", "Q", "ACT", "CON", "ASM")
                   if c.get("信頼度") == "推測")
     broken_asm = sum(1 for c in ctx.of("ASM") if c.get("status") == "崩れた")
@@ -300,6 +301,8 @@ def view_metrics(ctx):
         ["`却下理由: 記録なし` の比率", "高いままなら、会議で代替案が言語化されていない。"
                                         "Wiki の問題ではなく意思決定の仕方の問題",
          pct(no_reason, len(alternatives))],
+        ["沈黙由来の代替案", "口に出たが誰も反応しなかった案。"
+                               "議事録には残らない、この仕組みでしか取れない分", silent_alt],
         ["昇格した制約", "却下理由から環境の性質が抽出できているか", len(ctx.of("CON"))],
         ["昇格した前提", "うち棚卸し対象のみが運用される", len(ctx.of("ASM"))],
         ["前提の「崩れた」判定", "逆リンクが機能しているか。1件でも出れば元は取れている", broken_asm],

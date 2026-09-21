@@ -46,6 +46,8 @@ llm-wiki/
       logs/
         LOG-20260918-01.md       # ← 引用の照合先はこれ
         LOG-20260918-02.md
+      unknown-terms.yaml         # Pass 2 の出力（未知語リスト）
+      extraction-notes.yaml      # Pass 3 の欠落ガードの理由
       promote-candidates.yaml    # Pass 4 の出力（承認後は破棄可）
 
   decisions/DEC-014.md

@@ -25,3 +25,9 @@ python3 tools/giji.py minutes-input --root projects/example --edition customer
 上記のとおり引用を意図的にずらしてあるので、`lint` は `quote-verbatim` の error を
 必ず1件出す。**それが正しい状態。** `.fixture` を置いてあるので、pre-commit と
 Stop フックの自動検査からは外れる（教材であって実運用の案件ではないため）。
+
+## Pass 1 を試す
+
+`meetings/MTG-20260918/transcript.md` を置いてある。書式は
+`templates/project/README.md` の「文字起こしの書式」。`/segment` に渡すと
+`segments.yaml` が出る（`logs/LOG-20260918-03.md` がその先の姿）。

@@ -39,6 +39,8 @@ def main():
             root = os.path.join(projects, slug)
             if not os.path.isdir(root):
                 continue
+            if os.path.exists(os.path.join(root, ".wip")):
+                continue          # 作りかけ。完成するまで error が出るのは当たり前
             wiki = Wiki(root, ontology)
             if not wiki.cards or wiki.is_fixture:
                 continue

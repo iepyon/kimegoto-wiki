@@ -414,6 +414,19 @@ class ScopePendingQTest(LintTestCase):
     def test_判定保留でなければ鳴らない(self):
         self.assertQuiet([LOG, ("DEC", "DEC-001", {"範囲": "当初合意内"})], "scope-pending-q")
 
+    def test_技術判断では鳴らない(self):
+        # 技術判断の範囲を顧客に問う Q は起票しない規約なので、鳴らすと消せない。
+        self.assertQuiet([LOG, ("DEC", "DEC-001",
+                                {"範囲": "判定保留", "種別": "技術判断",
+                                 "決定の所在": "開発リーダ"})], "scope-pending-q")
+
+    def test_覆された決定では鳴らない(self):
+        # 覆った決定の範囲は、もう誰にも聞かない。対応する Q を取り下げるのが正しい。
+        self.assertQuiet([LOG, ("DEC", "DEC-001",
+                                {"範囲": "判定保留", "status": "覆された",
+                                 "superseded_by": "DEC-002"}),
+                          ("DEC", "DEC-002", {"範囲": "当初合意内"})], "scope-pending-q")
+
 
 class AsmGateTest(LintTestCase):
     def test_脆弱性高で逆リンクが空なら鳴る(self):
@@ -548,6 +561,28 @@ class LogBarrenTest(LintTestCase):
     def test_報告や雑談は対象外(self):
         self.assertQuiet([("LOG", "LOG-20260918-01", {"種別": "報告"})], "log-barren")
         self.assertQuiet([("LOG", "LOG-20260918-01", {"種別": "雑談"})], "log-barren")
+
+    def _with_notes(self, body):
+        wiki = self.wiki([("LOG", "LOG-20260918-01", {"種別": "議論"})])
+        (wiki.root / "meetings" / "MTG-20260918" / "extraction-notes.yaml").write_text(
+            body, encoding="utf-8")
+        return gijilint.run(wiki, only={"log-barren"})
+
+    def test_理由が書かれていれば鳴らない(self):
+        # LOG は不変層なので後から書き足せない。理由は会議ごとの別ファイルに置く。
+        found = self._with_notes(
+            "meeting: MTG-20260918\nnotes:\n"
+            "  - log: LOG-20260918-01\n"
+            "    extraction_empty_reason: 前回の読み上げのみで新たな判断は無かった\n")
+        self.assertFalse(found, [p.message for p in found])
+
+    def test_review_requiredが立っていれば鳴る(self):
+        found = self._with_notes(
+            "meeting: MTG-20260918\nnotes:\n"
+            "  - log: LOG-20260918-01\n"
+            "    review_required: true\n")
+        self.assertTrue(found)
+        self.assertIn("review_required", found[0].message)
 
 
 class IssueOrphanTest(LintTestCase):

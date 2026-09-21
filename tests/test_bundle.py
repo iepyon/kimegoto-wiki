@@ -87,6 +87,13 @@ class MinutesInputTest(BundleTestCase):
         for leaked in ("DEC-001", "DEC-002", "CON-001", "自前実装", "自社の制約", "推測の決定"):
             self.assertNotIn(leaked, footer, leaked)
 
+    def test_顧客版で担当の社名が不明にならない(self):
+        # `担当` は schema.md の定義どおり社名で持つ。役割として引き当てると
+        # unknown_role_default に落ちて「不明」になり、対外文書から約束の主体が消える。
+        text = self.bundle([LOG, ("ACT", "ACT-001", {"担当": "ESM"})]).minutes_input(MTG, "customer")
+        self.assertIn("担当: ESM", text)
+        self.assertNotIn("担当: 不明", text)
+
     def test_顧客版で担当が空なら空のまま(self):
         text = self.bundle([LOG, ("ACT", "ACT-001", {"担当": ""})]).minutes_input(MTG, "customer")
         self.assertNotIn("不明", text)
@@ -133,6 +140,27 @@ class PromoteInputTest(BundleTestCase):
         self.assertIn("理由のある決定", head)
         self.assertIn("失効保証を IdP 側に寄せるため", head)
         self.assertIn("昇格の門で落とした決定（0件）", text)
+
+    def test_却下理由が記録されていればなぜ未記入でも材料に入る(self):
+        # CON の中身は「捨てた案の理由」であって「採った案の理由」ではない。
+        # なぜ だけで門を閉じると、逐語で取れている制約まで落ちる。
+        text = self.bundle([LOG, ("DEC", "DEC-001", {
+            "title": "外部SaaSを使わない", "なぜ": "",
+            "代替案": [{"案": "外部SaaS", "却下理由": "社外にデータを出せない",
+                        "引用": "社外にデータを出すのは規程上できません",
+                        "信頼度": "逐語あり"}]})]).promote_input(MTG)
+        head = text.split("昇格の門で落とした")[0]
+        self.assertIn("外部SaaSを使わない", head)
+        self.assertIn("社外にデータを出せない", head)
+        self.assertIn("昇格の門で落とした決定（0件）", text)
+
+    def test_却下理由が記録なしだけなら材料に入らない(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {
+            "title": "理由のない決定", "なぜ": "",
+            "代替案": [{"案": "別案", "却下理由": "記録なし",
+                        "引用": "別案もあるんですけどね",
+                        "信頼度": "推測"}]})]).promote_input(MTG)
+        self.assertIn("昇格の門で落とした決定（1件）", text)
 
     def test_カードを作れとは書かない(self):
         text = self.bundle([LOG]).promote_input(MTG)

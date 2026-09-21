@@ -109,6 +109,14 @@ class MetricsTest(ViewTestCase):
             {"案": "A", "却下理由": "記録なし"}, {"案": "B", "却下理由": "工数"}]})], "metrics")
         self.assertIn("50% (1/2)", text)
 
+    def test_沈黙由来の代替案を数える(self):
+        # README の「上乗せ分の取り分」そのもの。カードの信頼度とは別に数える。
+        text = self.render([LOG, ("DEC", "DEC-001", {"代替案": [
+            {"案": "A", "却下理由": "記録なし", "信頼度": "推測"},
+            {"案": "B", "却下理由": "工数", "信頼度": "逐語あり"}]})], "metrics")
+        self.assertIn("沈黙由来の代替案", text)
+        self.assertRegex(text, r"沈黙由来の代替案.*\| 1 \|")
+
     def test_引用一致率を品質指標として出さない(self):
         # README が AutoMin 2025 の負の相関を根拠に明確に禁じている。
         text = self.render([LOG], "metrics")

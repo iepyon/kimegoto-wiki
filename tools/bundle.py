@@ -40,8 +40,16 @@ class Bundle:
         return card.headline(self.o)
 
     def company_of(self, role):
-        """役割を社名に丸める。顧客提出版でのみ使う。"""
+        """役割を社名に丸める。顧客提出版でのみ使う。
+
+        **すでに社名である値はそのまま返す。** ACT の `担当` は
+        `schema.md` の定義どおり社名で持っており、役割として引き当てると
+        `unknown_role_default` に落ちて「不明」になってしまう
+        （顧客に出す文書から約束の主体が消える）。
+        """
         if not role:
+            return role
+        if role in self.wiki.companies:
             return role
         info = self.wiki.role(role) or {}
         return info.get("社名") or role
@@ -227,18 +235,32 @@ class Bundle:
 
     # ------------------------------------------------ Pass 4 の入力
 
+    @staticmethod
+    def _recorded_reasons(card):
+        """`却下理由` が実際に記録されている代替案。`記録なし` と空は数えない。"""
+        return [row for row in card.structs("代替案")
+                if isinstance(row, dict)
+                and (row.get("却下理由") or "").strip() not in ("", "記録なし")]
+
     def promote_input(self, meeting_id):
         """昇格候補を出すための材料。
 
-        **`なぜ` が未記入の決定はここで落とす。** プロンプトの注意書きではなく、
-        入力の欠落で門を閉じる。理由の書かれていない決定から制約が生まれると、
-        将来の議論でその制約だけが効いてしまう。
+        **理由がどこにも記録されていない決定はここで落とす。** プロンプトの
+        注意書きではなく、入力の欠落で門を閉じる。理由の書かれていない決定から
+        制約が生まれると、将来の議論でその制約だけが効いてしまう。
+
+        門を通す条件は `なぜ` **または** `代替案[].却下理由` のどちらかがあること。
+        CON の中身は「採った案の理由（`なぜ`）」ではなく「捨てた案の理由
+        （`却下理由`）」なので、`なぜ` だけで閉じると、逐語で却下理由が取れている
+        制約まで落ちてしまう（`decision-guide.md` も両者を別物と定めている）。
         """
         if meeting_id not in self.wiki.meetings:
             raise KeyError("会議 %s が無い" % meeting_id)
         decisions = [c for c in self.wiki.cards_of_meeting(meeting_id, "DEC")]
-        passed = [c for c in decisions if c.get("なぜ")]
-        blocked = [c for c in decisions if not c.get("なぜ")]
+        passed = [c for c in decisions
+                  if c.get("なぜ") or self._recorded_reasons(c)]
+        blocked = [c for c in decisions
+                   if not c.get("なぜ") and not self._recorded_reasons(c)]
         logs = sorted(self.wiki.logs_of(meeting_id), key=lambda c: c.id)
         terms = sorted(self.wiki.by_type("TERM"), key=lambda c: c.id)
 
@@ -253,7 +275,7 @@ class Bundle:
             for c in sorted(passed, key=lambda c: c.id):
                 out.append("### %s %s" % (c.id, self.head(c)))
                 out.append("")
-                out.append("- なぜ: %s" % c.get("なぜ"))
+                out.append("- なぜ: %s" % (c.get("なぜ") or "（未記入）"))
                 if c.get("受容した不利"):
                     out.append("- 受容した不利: %s" % c.get("受容した不利"))
                 out.append("- derived_from: %s" % " / ".join(c.list("derived_from")))
@@ -291,7 +313,8 @@ class Bundle:
         out.append("## 昇格の門で落とした決定（%d件）" % len(blocked))
         out.append("")
         if blocked:
-            out.append("`なぜ` が未記入のため、この材料には含めていない。"
+            out.append("`なぜ` も `代替案[].却下理由` も記録されていないため、"
+                       "この材料には含めていない。"
                        "理由が書かれるまで制約・前提へ昇格できない。")
             out.append("")
             for c in sorted(blocked, key=lambda c: c.id):
