@@ -94,11 +94,18 @@ def card_text(type_name, card_id, body=None, **overrides):
     return render_card(data, body)
 
 
-def build(root, cards=(), role_mapping=ROLE_MAPPING):
-    """cards は (型, ID, overrides) または (型, ID, overrides, body) のタプル列。"""
+def build(root, cards=(), role_mapping=ROLE_MAPPING, segments=None):
+    """cards は (型, ID, overrides) または (型, ID, overrides, body) のタプル列。
+
+    segments は {会議 ID: segments.yaml の中身} 。Pass 1 の出力を見るテスト用。
+    """
     root = Path(root)
     ontology = schema.load()
     (root / "role-mapping.yaml").write_text(role_mapping, encoding="utf-8")
+    for meeting, text in (segments or {}).items():
+        directory = root / "meetings" / meeting
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "segments.yaml").write_text(text, encoding="utf-8")
     for entry in cards:
         type_name, card_id = entry[0], entry[1]
         overrides = entry[2] if len(entry) > 2 else {}
@@ -117,7 +124,7 @@ def build(root, cards=(), role_mapping=ROLE_MAPPING):
 class WikiTestCase(unittest.TestCase):
     """一時ディレクトリに案件を組み立てて使うテストの基底。"""
 
-    def wiki(self, cards=(), role_mapping=ROLE_MAPPING):
+    def wiki(self, cards=(), role_mapping=ROLE_MAPPING, segments=None):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        return build(tmp.name, cards, role_mapping)
+        return build(tmp.name, cards, role_mapping, segments)

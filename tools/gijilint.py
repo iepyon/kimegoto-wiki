@@ -331,6 +331,107 @@ def check_log_format(ctx):
     return out
 
 
+# ================================================== Pass 1 の出力（segments.yaml）
+#
+# segments.yaml はカードではないが、Pass 2 以降すべての土台になる。
+# ここが崩れたまま進むと LOG の分割ごとやり直しになり、後戻りが最も高くつく。
+# 形式の点検はスキルの禁止事項として LLM の自制に賭けず、ここで見る。
+
+TIME_RANGE = re.compile(r"^\d{2}:\d{2}:\d{2}\s*-\s*\d{2}:\d{2}:\d{2}$")
+
+
+def _segment_rows(ctx, meeting_id):
+    data, _, _ = ctx.wiki.segments[meeting_id]
+    rows = (data or {}).get("segments") or []
+    return [r for r in rows if isinstance(r, dict)]
+
+
+@check("segment-format", ERROR)
+def check_segment_format(ctx):
+    """segments.yaml の形。seq の連番・見出し・種別・時刻。"""
+    out = []
+    kinds = ctx.o.enum_values("LOG種別")
+    for meeting_id in sorted(ctx.wiki.segments):
+        data, _, error = ctx.wiki.segments[meeting_id]
+        if error is not None:
+            out.append(_p(check_segment_format, meeting_id,
+                          "segments.yaml が読めない: %s" % error))
+            continue
+        if data.get("meeting") and data["meeting"] != meeting_id:
+            out.append(_p(check_segment_format, meeting_id,
+                          "`meeting` がディレクトリと食い違う: %s" % data["meeting"]))
+        rows = _segment_rows(ctx, meeting_id)
+        for i, row in enumerate(rows, start=1):
+            where = "%s#%s" % (meeting_id, row.get("seq") or i)
+            if str(row.get("seq") or "") != str(i):
+                out.append(_p(check_segment_format, where,
+                              "`seq` が1からの連番になっていない（%s 番目が `%s`）"
+                              % (i, row.get("seq"))))
+            if not (row.get("title") or "").strip():
+                out.append(_p(check_segment_format, where, "`title` が空"))
+            kind = row.get("種別") or ""
+            if kind not in kinds:
+                out.append(_p(check_segment_format, where,
+                              "`種別` が語彙にない: `%s`（%s）" % (kind, " / ".join(kinds))))
+            time = (row.get("時刻") or "").strip()
+            if time and not TIME_RANGE.match(time):
+                out.append(_p(check_segment_format, where,
+                              "`時刻` が `HH:MM:SS - HH:MM:SS` の形でない: %s" % time))
+    return out
+
+
+@check("segment-count", WARNING)
+def check_segment_count(ctx):
+    """論点の数。範囲外なら逸脱理由を書く規約になっている。"""
+    out = []
+    low = ctx.o.threshold("segment-count-min")
+    high = ctx.o.threshold("segment-count-max")
+    limit = ctx.o.threshold("segment-title-max")
+    for meeting_id in sorted(ctx.wiki.segments):
+        data, raw, error = ctx.wiki.segments[meeting_id]
+        if error is not None:
+            continue
+        rows = _segment_rows(ctx, meeting_id)
+        if not (low <= len(rows) <= high) and "逸脱理由" not in raw:
+            out.append(_p(check_segment_count, meeting_id,
+                          "論点が %d件（%d〜%d件を外れている）。"
+                          "意図どおりなら末尾に `# 逸脱理由: <1行>` を書く"
+                          % (len(rows), low, high)))
+        for i, row in enumerate(rows, start=1):
+            title = (row.get("title") or "").strip()
+            if len(title) > limit:
+                out.append(_p(check_segment_count, "%s#%s" % (meeting_id, row.get("seq") or i),
+                              "`title` が %d文字を超える（%d文字）: %s"
+                              % (limit, len(title), title)))
+    return out
+
+
+@check("segment-role", WARNING)
+def check_segment_role(ctx):
+    """`参加役割` に role-mapping.yaml へ未登録の役割が混じっていないか。
+
+    LOG まで進んでから `role-unknown` で気づくと、その会議の抽出が
+    一巡やり直しになる。Pass 1 の時点で出す。
+    """
+    out = []
+    if not ctx.wiki.has_role_mapping:
+        return out
+    for meeting_id in sorted(ctx.wiki.segments):
+        _, _, error = ctx.wiki.segments[meeting_id]
+        if error is not None:
+            continue
+        unknown = set()
+        for row in _segment_rows(ctx, meeting_id):
+            roles = row.get("参加役割") or []
+            if not isinstance(roles, list):
+                roles = [roles]
+            unknown.update(r for r in roles if r and not ctx.wiki.is_known_role(r))
+        for role in sorted(unknown):
+            out.append(_p(check_segment_role, meeting_id,
+                          "`参加役割` の役割 `%s` が role-mapping.yaml に無い" % role))
+    return out
+
+
 # ================================================== 会議との多対多の整合
 
 @check("meeting-anchor", WARNING)

@@ -39,6 +39,8 @@ class Ontology:
         self.thresholds = data.get("thresholds", {})
         self.signpost_vague_words = data.get("signpost-vague-words", [])
         self.deferral_phrases = data.get("deferral-phrases", [])
+        self.assumption_trigger_words = data.get("assumption-trigger-words", [])
+        self.scope_question = data.get("scope-question", {})
         self._id_res = {t: re.compile(spec["id"]) for t, spec in self.types.items()}
         self._meeting_re = re.compile(self.meetings.get("id", "^MTG-"))
 
@@ -153,6 +155,21 @@ class Ontology:
     def hardness_table(self):
         return (self.derivations.get("硬度") or {}).get("table", {})
 
+    def role_derivation(self, field):
+        """role-mapping から引くフィールドの (引く先のキー, 取り出す欄)。
+
+        `種別` なら (決定の所在, 決定の種別)。role-mapping を引かない
+        フィールドなら None。
+        """
+        spec = self.derivations.get(field) or {}
+        if spec.get("from") != "role-mapping":
+            return None
+        return spec.get("key"), spec.get("source-field")
+
+    def role_derived_fields(self):
+        return [name for name in self.derivations
+                if (self.derivations[name] or {}).get("from") == "role-mapping"]
+
     # -------------------------------------------------- 導出される関係
 
     def meeting_relation(self):
@@ -177,6 +194,16 @@ class Ontology:
             raise SchemaError("未知の閾値: %s" % name) from None
 
     # ------------------------------------------------------------ 版
+
+    def sections_of(self, edition_name):
+        """その版の節構成。[(見出し, 注記), ...]。"""
+        out = []
+        for row in self.edition(edition_name).get("sections", []):
+            if isinstance(row, dict):
+                out.append((row.get("title", ""), row.get("note", "")))
+            elif row:
+                out.append((str(row), ""))
+        return out
 
     def edition(self, name):
         try:

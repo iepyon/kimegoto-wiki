@@ -179,16 +179,18 @@ README を確認した結果、**YAML フロントマターもトレーサビリ
 Pass 1  →  segments.yaml を人間が確認（粒度の調整）← ここだけ人が見る
 Pass 2  →  LOG カード生成 + 未知語リスト
 Pass 3  →  論点ごとに反復実行（DEC / Q / ACT）
-python3 verify_quotes.py --fix     ← 引用を検証、不一致は「推測」に降格
-python3 tools/giji.py lint         ← error 0 を確認
+python3 tools/giji.py scope-questions --meeting MTG-...  ← 範囲の問いを定型で起票
+python3 tools/giji.py verify-quotes --fix  ← 引用を検証、不一致は「推測」に降格
+python3 tools/giji.py lint                 ← error 0 を確認
 ```
 
 **Pass 4 は①では回さない。** `giji promote-input` は理由がどこにも記録されていない
 決定を材料から落とす。①の時点では `なぜ` が必ず未記入なので、材料が痩せる。
-②の 2-2 で `なぜ` を書いたあと、2-4 の直前に回す（下表）。
+②の 2-2 で `なぜ` を書いたあと、2-4 の直前に回す（下表）。順番を守らせるために、
+Pass 4 は独立したスキルではなく `/review` の中に置いてある。
 
 Claude Code では `/segment` `/log-cards` `/extract` のスキルが
-それぞれのパスに対応する。
+それぞれのパスに対応する。Pass 4（昇格）は `/review` が②の中で続けて回す。
 
 ### ② 確認（人間・25分／**会議当日か翌日に固定**）
 
@@ -200,7 +202,7 @@ Claude Code では `/segment` `/log-cards` `/extract` のスキルが
 | 2-1 | `review_required` と欠落ガードの理由を確認（拾い漏れがないか）／`信頼度: 推測` を確認 | 4分 |
 | 2-2 | DEC の `なぜ` を1行書く（Y-statement の穴埋め）／`却下理由: 記録なし` を埋められるなら埋める／`作らない` の3値を選ぶ | 8分 |
 | 2-3 | ACT の担当・期限を入れる（空欄が正常な出力）／前回 ACT の status を更新 | 4分 |
-| 2-4 | **ここで Pass 4（`/promote`）を回し**、出た昇格候補を yes/no で承認（ASM は `脆弱性: 高` のものだけ） | 6分 |
+| 2-4 | **ここで Pass 4 を回し**（`/review` が続けて進行する）、出た昇格候補を yes/no で承認（ASM は `脆弱性: 高` のものだけ） | 6分 |
 
 `python3 tools/giji.py review --meeting MTG-YYYYMMDD` が、この順序で
 **該当するカードだけ**を並べて出す（0件の節は「0件」とだけ出る）。

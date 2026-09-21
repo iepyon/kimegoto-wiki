@@ -277,6 +277,30 @@ class Wiki:
                     out[row["log"]] = row
         return out
 
+    @cached_property
+    def segments(self):
+        """`meetings/*/segments.yaml` を会議 ID で引ける形にする。
+
+        Pass 1 の出力。カードではないので Card にはせず、素の dict で持つ。
+        値は (パース結果, 原文)。原文を残すのは、逸脱理由が YAML の
+        コメント（`# 逸脱理由: ...`）として書かれるため。
+
+        壊れていても lint 全体を落とさない。読めなければ error を添えて返す。
+        """
+        out = {}
+        for meeting_id, meeting in self.meetings.items():
+            path = meeting.dir / "segments.yaml"
+            if not path.is_file():
+                continue
+            raw = path.read_text(encoding="utf-8")
+            try:
+                data = parse(raw) or {}
+            except MiniYamlError as exc:
+                out[meeting_id] = (None, raw, exc)
+                continue
+            out[meeting_id] = (data, raw, None)
+        return out
+
     def meetings_of(self, card):
         """そのカードが現れた会議の集合（古い順）。
 
