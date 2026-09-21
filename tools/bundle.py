@@ -197,8 +197,23 @@ class Bundle:
         out.append("")
         return out
 
+    def _skeleton(self, edition):
+        """議事録の節構成。正本は ontology.yaml の editions.<版>.sections。
+
+        散文でスキルに持たせると、版を足したときに必ず片方が古くなる。
+        """
+        sections = self.o.sections_of(edition)
+        if not sections:
+            return []
+        out = ["## 議事録の骨格（この見出しを、この順で使う）", ""]
+        for i, (title, note) in enumerate(sections, start=1):
+            out.append("%d. **%s**%s" % (i, title, " — %s" % note if note else ""))
+        out.append("")
+        return out
+
     def _footer(self, edition, customer):
         out = ["---", ""]
+        out.extend(self._skeleton(edition))
         if customer:
             out.append("## 顧客提出版で守ること")
             out.append("")
@@ -234,6 +249,25 @@ class Bundle:
         return out
 
     # ------------------------------------------------ Pass 4 の入力
+
+    def _assumption_hits(self, card):
+        """`なぜ` と却下理由に現れた前提のトリガー語。
+
+        語リストの正本は `ontology.yaml` の `assumption-trigger-words`。
+        **検出は機械、昇格の可否は人間。** ここは印を付けるだけで、
+        前提カードの候補にするかどうかは Pass 4 が判断する。
+        """
+        haystack = [("なぜ", card.get("なぜ") or "")]
+        for row in card.structs("代替案"):
+            if isinstance(row, dict) and row.get("却下理由"):
+                haystack.append(("代替案「%s」の却下理由" % (row.get("案") or "?"),
+                                 row["却下理由"]))
+        hits = []
+        for where, text in haystack:
+            for word in self.o.assumption_trigger_words:
+                if word and word in text:
+                    hits.append((where, word, text))
+        return hits
 
     @staticmethod
     def _recorded_reasons(card):
@@ -289,6 +323,22 @@ class Bundle:
             out.append(EMPTY)
             out.append("")
 
+        out.append("## 前提のトリガー語が出ている決定")
+        out.append("")
+        out.append("`なぜ` と却下理由を機械で走査した結果。**これだけでは前提ではない。**")
+        out.append("前提カードにするかは Pass 4 が判断し、"
+                   "`崩れたら見直す決定` が特定できないものは候補に出さない。")
+        out.append("")
+        flagged = [(c, hits) for c in sorted(passed, key=lambda c: c.id)
+                   for hits in [self._assumption_hits(c)] if hits]
+        if flagged:
+            for card, hits in flagged:
+                for where, word, text in hits:
+                    out.append("- %s の %s に `%s`: %s" % (card.id, where, word, text))
+        else:
+            out.append(EMPTY)
+        out.append("")
+
         out.append("## 会話ログ")
         out.append("")
         for log in logs:
@@ -309,6 +359,13 @@ class Bundle:
         out.append("")
 
         out.append("---")
+        out.append("")
+        out.append("## 候補の上限")
+        out.append("")
+        out.append("1回の会議で出す候補は **%d件まで**（根拠の強い順）。"
+                   "人間が承認しきれない量を出さないための上限で、"
+                   "取りこぼしても次回以降に拾える。量より確度を優先する。"
+                   % self.o.threshold("promote-candidates-max"))
         out.append("")
         out.append("## 昇格の門で落とした決定（%d件）" % len(blocked))
         out.append("")

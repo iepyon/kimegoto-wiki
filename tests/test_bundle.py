@@ -209,5 +209,58 @@ class ReviewTest(BundleTestCase):
         self.assertIn("ACT-001", text)
 
 
+class 議事録の骨格(BundleTestCase):
+    """節構成の正本は ontology.yaml。スキルの散文に持たせない。"""
+
+    def test_社内版は7節を出す(self):
+        text = self.bundle([LOG]).minutes_input(MTG)
+        for title in ("前回アクションの結果", "決定事項", "未決事項", "今回のアクション",
+                      "新たに記録した制約・前提", "議論の経緯", "記録の状態"):
+            self.assertIn("**%s**" % title, text)
+
+    def test_顧客提出版は内部向けの節を出さない(self):
+        text = self.bundle([LOG]).minutes_input(MTG, "customer")
+        self.assertIn("**確認事項**", text)
+        self.assertNotIn("**議論の経緯**", text)
+        self.assertNotIn("**記録の状態**", text)
+
+    def test_骨格は順番つきで出る(self):
+        text = self.bundle([LOG]).minutes_input(MTG, "customer")
+        self.assertIn("1. **前回アクションの結果**", text)
+        self.assertIn("4. **アクション**", text)
+
+
+class 前提のトリガー語(BundleTestCase):
+    """検出は機械、昇格の可否は人間。ここは印を付けるところまで。"""
+
+    def test_なぜに含まれるトリガー語を拾う(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {
+            "なぜ": "当面は50人規模なので、シンプルな構成で足りると判断した"})]
+        ).promote_input(MTG)
+        self.assertIn("DEC-001 の なぜ に `当面`", text)
+
+    def test_却下理由に含まれるトリガー語を拾う(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {"代替案": [
+            {"案": "専用DB", "却下理由": "今回は台数を増やせない", "引用": "増やせません",
+             "信頼度": "逐語あり"}]})]).promote_input(MTG)
+        self.assertIn("却下理由 に `今回は`", text)
+
+    def test_トリガー語が無ければ何も出さない(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {"なぜ": "移行コストが低いため"})]
+                           ).promote_input(MTG)
+        section = text.split("## 前提のトリガー語が出ている決定")[1].split("##")[0]
+        self.assertIn("（なし）", section)
+
+    def test_門で落ちた決定は走査しない(self):
+        # 理由がどこにも記録されていない決定は材料に入らない。
+        text = self.bundle([LOG, ("DEC", "DEC-001", {})]).promote_input(MTG)
+        section = text.split("## 前提のトリガー語が出ている決定")[1].split("##")[0]
+        self.assertIn("（なし）", section)
+
+    def test_候補の上限を材料に書く(self):
+        text = self.bundle([LOG]).promote_input(MTG)
+        self.assertIn("**10件まで**", text)
+
+
 if __name__ == "__main__":
     unittest.main()
