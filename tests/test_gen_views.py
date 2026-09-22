@@ -147,5 +147,57 @@ class GenerateTest(WikiTestCase):
         self.assertEqual(stale, [])
 
 
+class 鮮度の検査は時間で揺れない(ViewTestCase):
+    """`--check` は「今日時点で最新か」ではなく「カードと合っているか」を見る。
+
+    今日の日付で作り直して比べると、ヘッダの生成基準日も期限超過の件数も
+    日々変わるので、何もコミットしていないのに毎日「古い」と言い出す。
+    CI では恒久的に落ちる。
+    """
+
+    LATER = datetime.date(2026, 12, 25)
+
+    def test_日付が変わっただけでは古くならない(self):
+        wiki = self.wiki([LOG, ("DEC", "DEC-001", {})])
+        gen_views.generate(wiki, today=TODAY)
+        _, stale = gen_views.generate(wiki, today=None, check=True)
+        self.assertEqual(stale, [])
+
+    def test_期限を過ぎてもビューは古くならない(self):
+        # 期限超過はその日の状態であって、ビューの誤りではない。
+        wiki = self.wiki([LOG, ("ACT", "ACT-001", {"期限": "2026-09-30",
+                                                   "担当": "ESM"})])
+        gen_views.generate(wiki, today=TODAY)
+        _, stale = gen_views.generate(wiki, today=None, check=True)
+        self.assertEqual(stale, [])
+
+    def test_カードが変わったら古くなる(self):
+        wiki = self.wiki([LOG, ("DEC", "DEC-001", {})])
+        gen_views.generate(wiki, today=TODAY)
+        (wiki.root / "decisions" / "DEC-002.md").write_text(
+            (wiki.root / "decisions" / "DEC-001.md").read_text(encoding="utf-8")
+            .replace("DEC-001", "DEC-002"), encoding="utf-8")
+        fresh = self.wiki_at(wiki.root)
+        _, stale = gen_views.generate(fresh, today=None, check=True)
+        self.assertIn("index", stale)
+
+    def test_基準日を明示すればその日で比べる(self):
+        wiki = self.wiki([LOG, ("DEC", "DEC-001", {})])
+        gen_views.generate(wiki, today=TODAY)
+        _, stale = gen_views.generate(wiki, today=self.LATER, check=True)
+        # ヘッダの日付が違うので、明示したときは古いと出る（従来どおりの挙動）。
+        self.assertTrue(stale)
+
+    def test_生成基準日が読めないビューは今日で比べる(self):
+        wiki = self.wiki([LOG, ("DEC", "DEC-001", {})])
+        gen_views.generate(wiki, today=TODAY)
+        path = wiki.views_dir / "index.md"
+        path.write_text(path.read_text(encoding="utf-8")
+                        .replace("生成基準日: 2026-09-18", "生成基準日: —"),
+                        encoding="utf-8")
+        _, stale = gen_views.generate(wiki, today=None, check=True)
+        self.assertIn("index", stale)
+
+
 if __name__ == "__main__":
     unittest.main()

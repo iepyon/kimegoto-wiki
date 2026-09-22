@@ -2,13 +2,42 @@
 # 規約を機械的に守らせる門。
 #
 # --no-verify による迂回は許容する。技術的に塞げないし、フックは強制装置ではなく
-# 規律の道具として置いている。
+# 規律の道具として置いている。**塞げないぶん、CI が同じ門をもう一度通す。**
+#
+# 呼び方は3つ。門の中身は1つ（ここ）しかない。
+#
+#   pre-commit                          git フック。ステージした差分を見る
+#   pre-commit --all                    追跡中の全ファイルを対象にする（CI）
+#   pre-commit --against <ref>          <ref> との差分で不変層を見る（CI の PR）
+#
+# --all と --against は併用できる。CI は両方渡して「テストと schema は必ず回し、
+# 不変層は PR の差分で見る」にする。
 set -e
 
 root=$(git rev-parse --show-toplevel)
 cd "$root"
 
-staged=$(git diff --cached --name-only --diff-filter=ACMR)
+all=0
+base=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --all) all=1 ;;
+        --against)
+            [ -n "$2" ] || { echo "--against にはリビジョンが要る" >&2; exit 2; }
+            base=$2
+            shift
+            ;;
+        *) echo "不明な引数: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+
+if [ "$all" = 1 ]; then
+    # CI では「何を触ったか」で門を選り分けない。全部通す。
+    staged=$(git ls-files)
+else
+    staged=$(git diff --cached --name-only --diff-filter=ACMR)
+fi
 
 # 1. tools / tests を触ったらテスト
 if echo "$staged" | grep -qE '^(tools|tests)/'; then
@@ -44,8 +73,21 @@ for project in projects/*/; do
 done
 
 # 5. 不変層 — 文字起こし原本と LOG カードの改変を拒む（追加・削除は許す）
-changed=$(git diff --cached --name-only --diff-filter=M \
-    | grep -E 'meetings/[^/]+/(transcript\.md|logs/LOG-[^/]+\.md)$' || true)
+# 比較先が無いとき（--all だけで呼ばれたとき）は見ない。差分が定義できないため。
+if [ -n "$base" ]; then
+    diff_args="--diff-filter=M $base...HEAD"
+elif [ "$all" = 0 ]; then
+    diff_args="--cached --diff-filter=M"
+else
+    diff_args=""
+fi
+if [ -n "$diff_args" ]; then
+    # shellcheck disable=SC2086
+    changed=$(git diff --name-only $diff_args \
+        | grep -E 'meetings/[^/]+/(transcript\.md|logs/LOG-[^/]+\.md)$' || true)
+else
+    changed=""
+fi
 if [ -n "$changed" ]; then
     echo "pre-commit: 不変層が書き換えられている"
     echo "$changed" | sed 's/^/  /'

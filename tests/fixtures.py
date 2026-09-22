@@ -128,3 +128,7 @@ class WikiTestCase(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         return build(tmp.name, cards, role_mapping, segments)
+
+    def wiki_at(self, root):
+        """同じディレクトリを読み直す。カードを足したあとのキャッシュ避け。"""
+        return Wiki(root, schema.load())
