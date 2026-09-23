@@ -593,7 +593,7 @@
         <text class="t3" x="458" y="317" font-size="10" text-anchor="middle">生成</text>
 
         <rect class="bx-d" x="490" y="232" width="200" height="44"/>
-        <text x="590" y="251" font-size="12" text-anchor="middle">次回アジェンダへ</text>
+        <text x="590" y="251" font-size="12" text-anchor="middle">次回アジェンダ（Pass 0）へ</text>
         <text class="t3" x="590" y="267" font-size="10" text-anchor="middle">未決 Q・未完了 ACT</text>
 
         <rect class="bx-d" x="490" y="304" width="200" height="44"/>
@@ -601,7 +601,7 @@
         <text class="t3" x="590" y="339" font-size="10" text-anchor="middle">社内版／顧客提出版・保存しない</text>
       </svg>
     </div>
-    <figcaption><b>図2</b> — 人間が触るのは3箇所だけで、合計25分。<b>Pass 1 の出力が10行で済むのが効いている</b>ので、論点の粒度の調整をそこで安く吸収できる。左の破線が TERM の表記揺れの還流で、7種のうちこれだけが「溜まると入力品質が上がる」自己改善ループになる。右の2つは終端で、議事録はファイルとして保存せず必要なときに生成する。</figcaption>
+    <figcaption><b>図2</b> — 人間が触るのは3箇所だけで、合計25分。<b>Pass 1 の出力が10行で済むのが効いている</b>ので、論点の粒度の調整をそこで安く吸収できる。左の破線が TERM の表記揺れの還流で、7種のうちこれだけが「溜まると入力品質が上がる」自己改善ループになる。右上は次回の Pass 0（アジェンダ）への戻り口で、終端は右下の議事録だけ。議事録はファイルとして保存せず必要なときに生成する。</figcaption>
   </figure>
 
   <h3>逆流を先に作る</h3>
@@ -748,7 +748,7 @@
     <li><div><b>②-2 <code>なぜ</code> を書く<span class="who h">人 8分</span></b><span class="d">Y-statement の穴埋め。<code>却下理由: 記録なし</code> を埋められるなら埋める。<code>作らない</code> の3値を選ぶ。</span></div></li>
     <li><div><b>②-3 アクションの担当・期限と状況<span class="who h">人 4分</span></b><span class="d">担当の社名は自動で入る。<strong>空欄が正常な出力</strong>（抽出研究でも担当・期限は本文より当てにくい）。前回 ACT の status を更新する。</span></div></li>
     <li><div><b>②-4 昇格候補の承認<span class="who h">人 6分</span></b><span class="d">判断基準は1つだけ — 「これは他の決定にも効くか」。ASM は <code>脆弱性: 高</code> のものだけ。迷ったら no でよい。次回以降に拾える。</span></div></li>
-    <li><div><b>議事録のレンダリングと次回アジェンダ<span class="who m">LLM</span></b><span class="d">社内版を生成。リーダのレビュー後、必要なら顧客提出版。未決 Q と未完了 ACT が次回アジェンダに積まれる。</span></div></li>
+    <li><div><b>議事録のレンダリング<span class="who m">LLM</span></b><span class="d">社内版を生成。リーダのレビュー後、必要なら顧客提出版。未決 Q と未完了 ACT は次回の Pass 0（アジェンダ）に積まれる。</span></div></li>
   </ol>
 </section>
 

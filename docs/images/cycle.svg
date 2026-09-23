@@ -46,7 +46,7 @@
     <rect class="card human" x="24" y="52" width="152" height="176" rx="10"/>
     <text x="40" y="78" class="num human">① 会議の前</text>
     <text x="40" y="104" class="ttl">アジェンダ</text>
-    <text x="40" y="130" class="sub">議題ごとに出す</text>
+    <text x="40" y="130" class="sub">議題ごとに（Pass 0）</text>
     <text x="40" y="152" class="sub human">決めたいことを</text>
     <text x="40" y="170" class="sub human">議題に起票する</text>
     <text x="40" y="208" class="say">agenda-input</text>

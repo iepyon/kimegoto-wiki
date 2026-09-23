@@ -17,7 +17,7 @@ description: 会議の文字起こしを論点単位に切り出す（Pass 1）�
    文字起こしが無ければ `projects/<slug>/meetings/MTG-YYYYMMDD/transcript.md` を置いてもらう
 2. `role-mapping.yaml` を読む（役割ラベルの表記を合わせるため）
 3. `python3 tools/kime.py agenda-input --meeting MTG-YYYYMMDD` の「議題」節で、
-   この会議に載っていた議題（AGD）の ID と文言を見る
+   この会議に載っていた議題（AGD）の ID と文言を見る（Pass 0 の材料と同じもの）
 4. `meetings/MTG-YYYYMMDD/segments.yaml` に書き出す
 5. `python3 tools/kime.py lint --check segment-format,segment-count,segment-role` で形式を確認する
 6. **人間に粒度の確認を求めて、そこで止まる**
