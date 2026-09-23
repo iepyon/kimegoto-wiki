@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420" width="880" height="420" role="img" aria-labelledby="t d">
+  <title id="t">議題が親、決定・未決・アクションが子</title>
+  <desc id="d">議題（AGD）は予定会議を持ち、その会議のアジェンダに載る。決定事項（DEC）・未定事項（Q）・アクション（ACT）はそれぞれ 議題 欄で親の議題を1つ指す。親は子の一覧を持たない。子は derived_from で LOG を指し、LOG が逐語引用の照合先になる。論点に付けた議題を kime new --from-log が子へ写す。</desc>
+  <style>
+    svg { --ground:#F2F5F5; --surface:#FFFFFF; --rule:#D5DCDE; --ink:#141A1D; --ink2:#3D484E; --ink3:#6B767C;
+          --accent:#2B6873; --accent-soft:#DCE8EA; --s4:#1C4551; --human:#8D6117; }
+    @media (prefers-color-scheme: dark) {
+      svg { --ground:#0F1416; --surface:#171E21; --rule:#2D3639; --ink:#E3E9EA; --ink2:#A8B4B8; --ink3:#7B878C;
+            --accent:#79BEC3; --accent-soft:#1B3135; --s4:#C6DEE3; --human:#D5A75E; }
+    }
+    text { font-family:'Hiragino Sans','Yu Gothic','Noto Sans JP','Noto Sans CJK JP','IPAGothic',sans-serif; fill:var(--ink); }
+    .bg { fill:var(--ground); }
+    .card { fill:var(--surface); stroke:var(--rule); stroke-width:1.5; }
+    .parent { fill:var(--accent-soft); stroke:var(--accent); stroke-width:2; }
+    .log { fill:var(--surface); stroke:var(--ink3); stroke-width:1.5; stroke-dasharray:5 4; }
+    .id { font-size:13px; font-weight:700; fill:var(--accent); letter-spacing:.04em; }
+    .ttl { font-size:16px; font-weight:700; }
+    .sub { font-size:12.5px; fill:var(--ink2); }
+    .edge { stroke:var(--accent); stroke-width:1.8; fill:none; }
+    .edgeMuted { stroke:var(--ink3); stroke-width:1.5; fill:none; }
+    .edgeLabel { font-size:12px; font-weight:700; fill:var(--accent); }
+    .edgeLabelMuted { font-size:12px; fill:var(--ink3); }
+    .note { font-size:13px; fill:var(--ink2); }
+    .noteStrong { font-size:13px; font-weight:700; fill:var(--ink); }
+    .tipAccent { fill:var(--accent); }
+    .tipMuted { fill:var(--ink3); }
+  </style>
+  <defs>
+    <marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="tipAccent"/></marker>
+    <marker id="mu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="tipMuted"/></marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="880" height="420" rx="14"/>
+
+  <!-- 親：議題 -->
+  <rect class="parent" x="290" y="28" width="300" height="96" rx="12"/>
+  <text x="310" y="54" class="id">AGD　議題</text>
+  <text x="310" y="80" class="ttl">決めたいこと</text>
+  <text x="310" y="104" class="sub">提起者の言葉のまま・決着するまで続く</text>
+
+  <!-- 会議 -->
+  <rect class="card" x="676" y="40" width="180" height="72" rx="10"/>
+  <text x="692" y="64" class="id">MTG　会議</text>
+  <text x="692" y="90" class="ttl">アジェンダに載る</text>
+  <path class="edge" d="M592,76 L674,76" marker-end="url(#ac)"/>
+  <text x="633" y="68" class="edgeLabel" text-anchor="middle">予定会議</text>
+
+  <!-- 子 -->
+  <rect class="card" x="100" y="196" width="200" height="76" rx="10"/>
+  <text x="118" y="222" class="id">DEC　決定事項</text>
+  <text x="118" y="250" class="sub">議題の結論</text>
+
+  <rect class="card" x="340" y="196" width="200" height="76" rx="10"/>
+  <text x="358" y="222" class="id">Q　未定事項</text>
+  <text x="358" y="250" class="sub">決めるのに足りないもの</text>
+
+  <rect class="card" x="580" y="196" width="200" height="76" rx="10"/>
+  <text x="598" y="222" class="id">ACT　アクション</text>
+  <text x="598" y="250" class="sub">議題の宿題</text>
+
+  <!-- 子 → 親（子が親を指す） -->
+  <path class="edge" d="M200,194 L200,166 Q200,152 214,152 L400,152 Q412,152 412,140 L412,126" marker-end="url(#ac)"/>
+  <path class="edge" d="M440,194 L440,126" marker-end="url(#ac)"/>
+  <path class="edge" d="M680,194 L680,166 Q680,152 666,152 L480,152 Q468,152 468,140 L468,126" marker-end="url(#ac)"/>
+  <rect x="424" y="158" width="32" height="18" rx="4" class="bg"/>
+  <text x="440" y="172" class="edgeLabel" text-anchor="middle">議題</text>
+
+  <text x="24" y="150" class="noteStrong">子が親を1つ指す</text>
+  <text x="24" y="170" class="note">親は子の一覧を持たない</text>
+  <text x="24" y="188" class="note">（逆引きで出す）</text>
+
+  <!-- 子 → LOG -->
+  <path class="edgeMuted" d="M200,274 L200,318" marker-end="url(#mu)"/>
+  <path class="edgeMuted" d="M440,274 L440,318" marker-end="url(#mu)"/>
+  <path class="edgeMuted" d="M680,274 L680,318" marker-end="url(#mu)"/>
+  <text x="208" y="302" class="edgeLabelMuted">derived_from</text>
+
+  <rect class="log" x="100" y="320" width="680" height="56" rx="10"/>
+  <text x="118" y="344" class="id">LOG　会話ログ（不変層）</text>
+  <text x="118" y="366" class="sub">逐語の発言。すべての引用の照合先</text>
+
+  <text x="440" y="404" class="note" text-anchor="middle">論点（segments.yaml）に付けた議題を、kime new --from-log が子の「議題」へ写す</text>
+</svg>

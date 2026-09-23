@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 330" width="880" height="330" role="img" aria-labelledby="t d">
+  <title id="t">1サイクルの流れ</title>
+  <desc id="d">① 会議の前にアジェンダを出し議題を起票する。② 会議の後に文字起こしを論点に分け、扱った議題を書き戻し、LOG にする。③ DEC・Q・ACT を抽出する。④ 人が25分で確認する。⑤ 議事録を出す。開いた議題が次回の①に戻る。</desc>
+  <style>
+    svg { --ground:#F2F5F5; --surface:#FFFFFF; --rule:#D5DCDE; --ink:#141A1D; --ink2:#3D484E; --ink3:#6B767C;
+          --accent:#2B6873; --accent-soft:#DCE8EA; --human:#8D6117; --human-soft:#F4EBDC; }
+    @media (prefers-color-scheme: dark) {
+      svg { --ground:#0F1416; --surface:#171E21; --rule:#2D3639; --ink:#E3E9EA; --ink2:#A8B4B8; --ink3:#7B878C;
+            --accent:#79BEC3; --accent-soft:#1B3135; --human:#D5A75E; --human-soft:#2B2416; }
+    }
+    text { font-family:'Hiragino Sans','Yu Gothic','Noto Sans JP','Noto Sans CJK JP','IPAGothic',sans-serif; fill:var(--ink); }
+    .bg { fill:var(--ground); }
+    .card { fill:var(--surface); stroke:var(--rule); stroke-width:1.5; }
+    .card.human { stroke:var(--human); }
+    .num { font-size:13px; font-weight:700; fill:var(--accent); letter-spacing:.04em; }
+    .human .num, .num.human { fill:var(--human); }
+    .ttl { font-size:17px; font-weight:700; }
+    .sub { font-size:12.5px; fill:var(--ink2); }
+    .sub.human { fill:var(--human); font-weight:700; }
+    .say { font-size:11.5px; fill:var(--ink3); }
+    .arrow { stroke:var(--ink3); stroke-width:1.6; fill:none; }
+    .loop { stroke:var(--accent); stroke-width:2; fill:none; }
+    .loopText { font-size:14px; font-weight:700; fill:var(--accent); }
+    .pill { fill:var(--accent-soft); }
+    .pillText { font-size:11.5px; fill:var(--accent); font-weight:700; }
+    .legend { font-size:12px; fill:var(--ink2); }
+    .tipH { fill:var(--human); }
+    .tipA { fill:var(--ink3); }
+    .tipL { fill:var(--accent); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="tipA"/></marker>
+    <marker id="l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="tipL"/></marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="880" height="330" rx="14"/>
+
+  <!-- 凡例 -->
+  <rect x="24" y="20" width="14" height="14" rx="3" class="card"/>
+  <text x="44" y="32" class="legend">機械とスキルが進める</text>
+  <rect x="190" y="20" width="14" height="14" rx="3" class="card human"/>
+  <text x="210" y="32" class="legend">人が判断する</text>
+
+  <!-- ① -->
+  <g>
+    <rect class="card human" x="24" y="52" width="152" height="176" rx="10"/>
+    <text x="40" y="78" class="num human">① 会議の前</text>
+    <text x="40" y="104" class="ttl">アジェンダ</text>
+    <text x="40" y="130" class="sub">議題ごとに出す</text>
+    <text x="40" y="152" class="sub human">決めたいことを</text>
+    <text x="40" y="170" class="sub human">議題に起票する</text>
+    <text x="40" y="208" class="say">agenda-input</text>
+  </g>
+
+  <!-- ② -->
+  <g>
+    <rect class="card" x="216" y="52" width="152" height="176" rx="10"/>
+    <text x="232" y="78" class="num">② 会議の後</text>
+    <text x="232" y="104" class="ttl">取り込む</text>
+    <text x="232" y="130" class="sub">論点に分ける</text>
+    <text x="232" y="152" class="sub">扱った議題を書き戻す</text>
+    <text x="232" y="174" class="sub">LOG にする</text>
+    <text x="232" y="208" class="say">agenda-sync</text>
+  </g>
+
+  <!-- ③ -->
+  <g>
+    <rect class="card" x="392" y="52" width="152" height="176" rx="10"/>
+    <text x="408" y="78" class="num">③ 記録</text>
+    <text x="408" y="104" class="ttl">抽出する</text>
+    <text x="408" y="130" class="sub">DEC・Q・ACT を</text>
+    <text x="408" y="148" class="sub">1論点ずつ（Pass 3）</text>
+    <text x="408" y="170" class="sub">議題は論点から写る</text>
+    <text x="408" y="208" class="say">new --from-log</text>
+  </g>
+
+  <!-- ④ -->
+  <g>
+    <rect class="card human" x="568" y="52" width="152" height="176" rx="10"/>
+    <text x="584" y="78" class="num human">④ 確認・25分</text>
+    <text x="584" y="104" class="ttl">空欄を埋める</text>
+    <text x="584" y="130" class="sub human">なぜ・担当・期限</text>
+    <text x="584" y="152" class="sub human">昇格の承認</text>
+    <text x="584" y="174" class="sub human">議題の締め</text>
+    <text x="584" y="208" class="say">review</text>
+  </g>
+
+  <!-- ⑤ -->
+  <g>
+    <rect class="card" x="744" y="52" width="112" height="176" rx="10"/>
+    <text x="760" y="78" class="num">⑤ 出力</text>
+    <text x="760" y="104" class="ttl">議事録</text>
+    <text x="760" y="130" class="sub">カードの射影</text>
+    <text x="760" y="148" class="sub">保存しない</text>
+    <text x="760" y="208" class="say">minutes-input</text>
+  </g>
+
+  <!-- 進む矢印 -->
+  <path class="arrow" d="M178,164 L214,164" marker-end="url(#a)"/>
+  <path class="arrow" d="M370,140 L390,140" marker-end="url(#a)"/>
+  <path class="arrow" d="M546,140 L566,140" marker-end="url(#a)"/>
+  <path class="arrow" d="M722,140 L742,140" marker-end="url(#a)"/>
+
+  <!-- 会議 -->
+  <rect class="pill" x="178" y="124" width="36" height="22" rx="11"/>
+  <text x="196" y="139" class="pillText" text-anchor="middle">会議</text>
+
+  <!-- 戻り -->
+  <path class="loop" d="M800,232 L800,262 Q800,282 780,282 L120,282 Q100,282 100,262 L100,236" marker-end="url(#l)"/>
+  <text x="446" y="306" class="loopText" text-anchor="middle">開いた議題（その下の未決の Q・未完了の ACT）が次回の ① に戻る</text>
+</svg>
