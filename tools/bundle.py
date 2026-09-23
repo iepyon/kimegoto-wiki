@@ -191,14 +191,14 @@ class Bundle:
         return "\n".join(out).rstrip() + "\n"
 
     def _scope_section(self, meeting_id, edition, customer):
-        """範囲の確認 — `範囲: 判定保留` の決定を、顧客に聞く問いとして出す。
+        """スコープの確認 — `スコープ: 判定保留` の決定を、顧客に聞く問いとして出す。
 
         Q カードは無い（`tools/scope_cmd.py`）。この会議で生成・更新された決定のうち
         まだ聞いていないものを、未決事項の末尾に同じ写像で並べる。
         """
         rows = [(c, title, to) for c, title, to in scope_cmd.plan(self.wiki, meeting_id)
                 if not (customer and self._excluded(c, edition))]
-        out = ["### 範囲の確認（当初の合意に入っていたか）", ""]
+        out = ["### スコープの確認（当初の合意に入っていたか）", ""]
         if not rows:
             return out + [EMPTY, ""]
         for c, title, to in rows:
@@ -385,7 +385,7 @@ class Bundle:
                 out.append("")
                 continue
             if section.key == "scope-pending":
-                # 決定の `範囲: 判定保留` の射影。Q カードは無い（`tools/scope_cmd.py`）。
+                # 決定の `スコープ: 判定保留` の射影。Q カードは無い（`tools/scope_cmd.py`）。
                 for c, title, to in scope_cmd.plan(self.wiki):
                     out.append("- %s %s（確認先: %s・%s）" % (c.id, title, to or "—", c.get("決定日") or "—"))
                 out.append("")
@@ -630,7 +630,7 @@ class Bundle:
             return sorted([c for c in current if c.type == type_name], key=lambda c: c.id)
 
         want = scope_cmd.pending_scope(self.wiki)
-        pending = [c for c in of("DEC") if c.get("範囲") == want]
+        pending = [c for c in of("DEC") if c.get("スコープ") == want]
         askable = {c.id: to for c, _, to in scope_cmd.plan(self.wiki, meeting_id)}
         guessed = [c for c in current if c.get("信頼度") == "推測"]
         no_why = [c for c in of("DEC") if not c.get("なぜ")]
@@ -644,11 +644,11 @@ class Bundle:
                "**`なぜ` と却下理由を LLM に書かせない。**"
                "書けない場合は `記録なし` を入れる。空欄は情報であり、埋めるべき穴ではない。", ""]
 
-        out += self._step("2-0", "`範囲: 判定保留` の決定", "3分",
+        out += self._step("2-0", "`スコープ: 判定保留` の決定", "3分",
                           "受託開発では最優先。他を飛ばしてもここは見る。"
                           "無理に判定すると追加請求の根拠を失う。"
-                          "判定は `kime update DEC-NNN --set 範囲=…` に書く。Q は立てない"
-                          "（`判定保留` のあいだ、アジェンダと議事録に「範囲の確認」として出る）。",
+                          "判定は `kime update DEC-NNN --set スコープ=…` に書く。Q は立てない"
+                          "（`判定保留` のあいだ、アジェンダと議事録に「スコープの確認」として出る）。",
                           [["ID", "決定", "種別", "確認先", "決定日"]] +
                           [[c.id, self.head(c), c.get("種別"), askable.get(c.id, "—"), c.get("決定日")]
                            for c in pending])

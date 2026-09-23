@@ -3,7 +3,7 @@
 
 見ているのは「機械が書く」側。これまで LLM が書いて lint が事後照合していた
 写像が、ここで一意に決まることを確かめる。同時に、**埋めてはいけないものを
-埋めていない**ことも確かめる（`なぜ` / `期限` / `範囲`）。
+埋めていない**ことも確かめる（`なぜ` / `期限` / `スコープ`）。
 """
 
 import unittest
@@ -119,7 +119,7 @@ class 雛形への書き込み(WikiTestCase):
         _, text, _, _ = new_card(w, "DEC", meeting="MTG-20260918", title="t",
                                  role="顧客PM", log="LOG-20260918-01")
         self.assertIn("なぜ:\n", text)
-        self.assertIn("範囲: 判定保留", text)
+        self.assertIn("スコープ: 判定保留", text)
         self.assertIn("代替案: []", text)
 
     def test_アクションの起票日は会議日になる(self):

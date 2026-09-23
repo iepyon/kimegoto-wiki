@@ -224,11 +224,11 @@ def view_open_items(ctx):
                    ["未決の問い", n_q],
                    ["未完了のアクション", n_act],
                    ["棚卸し対象の前提", n_asm],
-                   ["`範囲: 判定保留` の決定", n_pending],
+                   ["`スコープ: 判定保留` の決定", n_pending],
                    ["`信頼度: 推測` のカード", n_guess],
                    ["`確定日` 未記入の決定", n_unconf]]), ""]
 
-    out.append(_section("範囲が判定保留の決定", pending,
+    out.append(_section("スコープが判定保留の決定", pending,
                         "受託開発では最優先。ここで無理に判定すると、"
                         "後で追加請求の根拠を失う。"))
     out.append(_section("`なぜ` が未記入の決定", why,

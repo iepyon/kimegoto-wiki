@@ -254,13 +254,13 @@ class PromoteInputTest(BundleTestCase):
 
 class ReviewTest(BundleTestCase):
     def test_判定保留を最初に出す(self):
-        text = self.bundle([LOG, ("DEC", "DEC-001", {"範囲": "判定保留"})]).review(MTG)
+        text = self.bundle([LOG, ("DEC", "DEC-001", {"スコープ": "判定保留"})]).review(MTG)
         self.assertLess(text.index("2-0"), text.index("2-1"))
-        self.assertIn("範囲: 判定保留", text)
+        self.assertIn("スコープ: 判定保留", text)
         self.assertIn("DEC-001", text)
 
     def test_該当0件の節は0件とだけ出す(self):
-        text = self.bundle([LOG, ("DEC", "DEC-001", {"範囲": "当初合意内",
+        text = self.bundle([LOG, ("DEC", "DEC-001", {"スコープ": "当初スコープ内",
                                                      "なぜ": "理由"})]).review(MTG)
         self.assertIn("0件", text)
 
