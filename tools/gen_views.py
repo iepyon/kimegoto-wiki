@@ -164,7 +164,7 @@ def _agenda_items(ctx, items):
     for item in items:
         c = item.card
         rows.append([c.id, ctx.head(c), c.get("提起者"),
-                     "持ち越し" if item.carried else c.get("status"),
+                     item.label,
                      " / ".join(c.list("予定会議")) or "（次回）",
                      " / ".join(d.id for d in item.decisions),
                      " / ".join(q.id for q in item.questions),

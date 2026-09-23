@@ -318,8 +318,10 @@ class Bundle:
             out.append("### %s %s" % (card.id, self.head(card)))
             out.append("")
             out.append("- 提起者: %s（%s）" % (card.get("提起者") or "—", card.get("提起日") or "—"))
-            out.append("- 状態: %s%s" % (card.get("status") or "—",
-                                        "（持ち越し）" if item.carried else ""))
+            carry = ""
+            if item.carried:
+                carry = "（持ち越し：%s）" % item.history if item.history else "（持ち越し）"
+            out.append("- 状態: %s%s" % (card.get("status") or "—", carry))
             out.append("- 予定会議: %s" % (" / ".join(card.list("予定会議")) or "（次回）"))
             out.append("")
             out.append("#### これまでの決定")
@@ -547,22 +549,23 @@ class Bundle:
                           "出てきた候補を yes/no で承認する。"
                           "前提は `脆弱性: 高` のものだけ。迷ったら昇格させない。", [])
 
-        topics = [(c, self.wiki.children_of(c)) for c in sorted(self.wiki.by_type("AGD"),
-                                                                key=lambda c: c.id)
-                  if c.error is None
-                  and c.get("status") not in self.o.agenda_closed_status()
-                  and (meeting_id in c.list("予定会議")
-                       or any(x in current for x in self.wiki.children_of(c)))]
-        rows = [["ID", "議題", "status", "今回の決定", "未決の問い", "未完了のアクション"]]
-        rows += [[c.id, self.head(c), c.get("status"),
-                  " / ".join(x.id for x in kids if x.type == "DEC" and x in current),
-                  " / ".join(x.id for x in kids if x.type == "Q" and agenda.is_open_question(x)),
-                  " / ".join(x.id for x in kids if x.type == "ACT" and agenda.is_open_action(x))]
-                 for c, kids in topics]
+        items = [item for item in agenda.agenda_items(self.wiki, meeting_id)
+                 if meeting_id in item.card.list("予定会議")
+                 or meeting_id in self.wiki.discussed_in(item.card)
+                 or any(x in current for x in self.wiki.children_of(item.card))]
+        rows = [["ID", "議題", "この会議で", "今回の決定", "未決の問い", "目安"]]
+        rows += [[item.card.id, self.head(item.card),
+                  "扱った" if meeting_id in self.wiki.discussed_in(item.card) else "扱えず",
+                  " / ".join(x.id for x in item.decisions if x in current),
+                  " / ".join(x.id for x in item.questions),
+                  agenda.closing_hint(item)]
+                 for item in items]
         out += self._step("2-5", "議題の締め", "2分",
-                          "この会議の議題が決着したかを人間が判定する（未決の問いが残っていれば"
-                          "決着にしない）。決着なら `kime update AGD-NNN --set status=決着`。"
-                          "扱ったが決着しないなら `継続`。何もしなければ次回へ自動で持ち越す。",
+                          "この会議の議題が決着したかを人間が判定する。`目安` は候補を示すだけ"
+                          "（未決の問いが残っていれば決着にしない）。"
+                          "決着なら `kime update AGD-NNN --set status=決着`。"
+                          "結論が出なかった議題は何もしない — 開いたまま次回へ持ち越される。"
+                          "何が足りずに決まらなかったかが発言に出ていれば、それは Pass 3 が Q にしている。",
                           rows)
 
         out.append("---")

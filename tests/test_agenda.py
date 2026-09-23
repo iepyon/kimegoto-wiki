@@ -5,11 +5,13 @@
 アジェンダは「その会議に載る議題と、その下のカード」の射影。
 """
 
+import contextlib
 import datetime
+import io
 import unittest
 
 from tests.fixtures import WikiTestCase
-from tools import agenda, gen_views, kimelint
+from tools import agenda, agenda_sync_cmd, gen_views, kimelint
 from tools.bundle import Bundle
 from tools.derive import derived_fields
 from tools.new_cmd import new_card
@@ -200,6 +202,126 @@ class 検査(WikiTestCase):
         errors = [p for p in kimelint.run(self.wiki([LOG, agd("AGD-001")]), today=TODAY)
                   if p.level == "error"]
         self.assertEqual(errors, [], [p.message for p in errors])
+
+
+
+# 2回の会議のうち、1回目だけで議題を扱った。
+TWO_MEETINGS = {
+    "MTG-20260904": """\
+meeting: MTG-20260904
+segments:
+  - seq: 1
+    title: 認証方式
+    種別: 議論
+    議題: AGD-001
+""",
+    "MTG-20260918": """\
+meeting: MTG-20260918
+segments:
+  - seq: 1
+    title: 別の話
+    種別: 議論
+""",
+}
+
+
+class 結論が出なかった議題(WikiTestCase):
+    def item(self, cards, segments, meeting="MTG-20261002"):
+        w = self.wiki([LOG] + cards, segments=segments)
+        return agenda.agenda_items(w, meeting)[0]
+
+    def test_扱ったが結論なしと出る(self):
+        item = self.item([agd("AGD-001", status="継続", 予定会議=["MTG-20260904"])],
+                         {"MTG-20260904": TWO_MEETINGS["MTG-20260904"]})
+        self.assertEqual(item.label, "持ち越し（MTG-20260904 で扱ったが結論なし）")
+
+    def test_予定したのに扱えなかったと出る(self):
+        item = self.item([agd("AGD-001", status="継続",
+                              予定会議=["MTG-20260904", "MTG-20260918"])], TWO_MEETINGS)
+        self.assertEqual(item.label, "持ち越し（MTG-20260918 で扱えず）")
+
+    def test_会議の場で出て扱った議題も持ち越す(self):
+        # 予定会議が空でも、論点に付いていれば扱った会議として数える
+        item = self.item([agd("AGD-001", 予定会議=[])],
+                         {"MTG-20260904": TWO_MEETINGS["MTG-20260904"]})
+        self.assertTrue(item.carried)
+
+    def test_未決があれば継続を示す(self):
+        item = self.item([agd("AGD-001"), ("Q", "Q-001", {"議題": "AGD-001"})], {},
+                         "MTG-20260918")
+        self.assertEqual(agenda.closing_hint(item), "継続（Q-001 が未決）")
+
+    def test_未決が無く決定があれば決着候補(self):
+        item = self.item([agd("AGD-001"), ("DEC", "DEC-001", {"議題": "AGD-001"})], {},
+                         "MTG-20260918")
+        self.assertEqual(agenda.closing_hint(item), "決着候補")
+
+    def test_確認2に扱ったかと目安が出る(self):
+        w = self.wiki([LOG, agd("AGD-001", 予定会議=["MTG-20260918"]),
+                       ("DEC", "DEC-001", {"議題": "AGD-001"})])
+        text = Bundle(w, TODAY).review("MTG-20260918")
+        row = next(l for l in text.splitlines() if l.startswith("| AGD-001"))
+        self.assertIn("扱えず", row)
+        self.assertIn("決着候補", row)
+
+
+def quiet(func, *args):
+    with contextlib.redirect_stdout(io.StringIO()):
+        return func(*args)
+
+
+class 議題の書き戻し(WikiTestCase):
+    def test_扱った議題を継続にし予定会議に足す(self):
+        w = self.wiki([LOG, agd("AGD-001", 予定会議=[])],
+                      segments={"MTG-20260904": TWO_MEETINGS["MTG-20260904"]})
+        (card, sets, _), = agenda_sync_cmd.plan(w)
+        self.assertEqual(dict(sets), {"status": "継続", "予定会議": "[MTG-20260904]"})
+
+    def test_書き戻すとカードが変わる(self):
+        w = self.wiki([LOG, agd("AGD-001", 予定会議=["MTG-20260904"])],
+                      segments={"MTG-20260904": TWO_MEETINGS["MTG-20260904"]})
+        self.assertEqual(quiet(agenda_sync_cmd.main, ["--root", str(w.root), "--write"]), 0)
+        again = self.wiki_at(w.root)
+        self.assertEqual(again.get("AGD-001").get("status"), "継続")
+        self.assertEqual(agenda_sync_cmd.plan(again), [])
+
+    def test_予定会議の行が無いカードにも書ける(self):
+        w = self.wiki([LOG, agd("AGD-001", 予定会議=None)],
+                      segments={"MTG-20260904": TWO_MEETINGS["MTG-20260904"]})
+        quiet(agenda_sync_cmd.main, ["--root", str(w.root), "--write"])
+        self.assertEqual(self.wiki_at(w.root).get("AGD-001").list("予定会議"), ["MTG-20260904"])
+
+    def test_閉じた議題には触らない(self):
+        w = self.wiki([LOG, agd("AGD-001", status="決着", 予定会議=[])],
+                      segments={"MTG-20260904": TWO_MEETINGS["MTG-20260904"]})
+        self.assertEqual(agenda_sync_cmd.plan(w), [])
+
+    def test_書き戻し漏れを_lint_が拾う(self):
+        w = self.wiki([LOG, agd("AGD-001", 予定会議=["MTG-20260904"])],
+                      segments={"MTG-20260904": TWO_MEETINGS["MTG-20260904"]})
+        self.assertTrue(kimelint.run(w, today=TODAY, only={"agd-unsynced"}))
+
+    def test_扱っていなければ鳴らない(self):
+        w = self.wiki([LOG, agd("AGD-001")])
+        self.assertFalse(kimelint.run(w, today=TODAY, only={"agd-unsynced"}))
+
+
+class 議題の言い換え(WikiTestCase):
+    def problems(self, q_title, agd_title="図面PDFを検索対象に入れるかを決めたい"):
+        w = self.wiki([LOG, agd("AGD-001", title=agd_title),
+                       ("Q", "Q-001", {"議題": "AGD-001", "title": q_title})])
+        return kimelint.run(w, today=TODAY, only={"q-restates-agenda"})
+
+    def test_議題と同じ問いは鳴る(self):
+        self.assertTrue(self.problems("図面PDFを検索対象に入れるか"))
+
+    def test_足りないものを問う_Q_は鳴らない(self):
+        self.assertFalse(self.problems("図面PDF対応の追加費用をどう扱うか"))
+
+    def test_議題に紐づかない_Q_は見ない(self):
+        w = self.wiki([LOG, agd("AGD-001", title="図面PDFを検索対象に入れるか"),
+                       ("Q", "Q-001", {"title": "図面PDFを検索対象に入れるか"})])
+        self.assertFalse(kimelint.run(w, today=TODAY, only={"q-restates-agenda"}))
 
 
 if __name__ == "__main__":

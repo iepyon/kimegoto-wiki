@@ -447,6 +447,12 @@ editions:
 
 agenda:
   closed-status: [決着, 取り下げ]
+  # 議題を言い換えただけの Q を拾う（lint の `q-restates-agenda`）。
+  # 題名から次の語と記号を除いてから、文字の2字組の重なり（Dice 係数・百分率）を見る。
+  # 開いた議題そのものが「まだ決まっていない」を表しているので、同じものを Q に立てない。
+  # Q に立てるのは「決めるために足りないもの」（誰の何を待っているか）だけ。
+  restate-strip: [を決めたい, を決める, について, をどうするか, どうするか, するか, か]
+  restate-similarity-percent: 80
   sections:
     - { key: why-missing, title: "`なぜ` が未記入の決定（冒頭で確認）", note: "書かないことに付けたコスト。埋まるまで制約・前提へ昇格できない" }
     - { key: open-actions, title: 前回からの未完了アクション, note: "担当・期限・状態" }

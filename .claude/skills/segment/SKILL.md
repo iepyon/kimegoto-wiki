@@ -21,6 +21,8 @@ description: 会議の文字起こしを論点単位に切り出す（Pass 1）�
 4. `meetings/MTG-YYYYMMDD/segments.yaml` に書き出す
 5. `python3 tools/kime.py lint --check segment-format,segment-count,segment-role` で形式を確認する
 6. **人間に粒度の確認を求めて、そこで止まる**
+7. 確認が通ったら `python3 tools/kime.py agenda-sync --meeting MTG-YYYYMMDD --write` を回す
+   （扱った議題の `status` と `予定会議` を機械が書き戻す。自分でカードを直さない）
 
 ## 形式は機械が見る
 

@@ -333,13 +333,36 @@ class Wiki:
         return sorted((c for c in pool if c.error is None and c.get("議題") == agenda_id),
                       key=lambda c: (c.type, c.id))
 
+    @cached_property
+    def _segment_topics(self):
+        """{AGD id: [その議題を扱った会議, ...]}。`segments.yaml` の `議題` から引く。"""
+        out = {}
+        for meeting_id in sorted(self.segments):
+            data = self.segments[meeting_id][0]
+            for row in (data or {}).get("segments") or []:
+                topic = row.get("議題") if isinstance(row, dict) else None
+                if isinstance(topic, str) and topic.strip():
+                    found = out.setdefault(topic.strip(), [])
+                    if meeting_id not in found:
+                        found.append(meeting_id)
+        return out
+
+    def discussed_in(self, agenda):
+        """その議題を実際に扱った会議（古い順）。論点に `議題` が付いた会議。
+
+        `予定会議` は「扱うつもりだった会議」、こちらは「扱った会議」。
+        両者の差で「扱ったが結論が出なかった」と「扱えなかった」を分ける。
+        """
+        agenda_id = agenda.id if isinstance(agenda, Card) else agenda
+        return list(self._segment_topics.get(agenda_id, []))
+
     def agenda_of(self, meeting_id=None):
         """その会議のアジェンダに載る議題（AGD）。[(カード, 持ち越しか), ...]。
 
         閉じていない議題のうち、
           - `予定会議` に対象会議を含む
-          - `予定会議` がすべて対象会議より前（前回までに扱い、決着していない ＝ 持ち越し）
-          - `予定会議` が空（次回に扱う）
+          - `予定会議` と扱った会議がすべて対象会議より前（決着していない ＝ 持ち越し）
+          - どちらも空（次回に扱う）
         のどれか。`meeting_id` が None なら「次回」とみなし、閉じていない議題を全部出す。
         対象会議はまだディレクトリが無くてよい（会議の前に作るものなので）。
         """
@@ -348,7 +371,8 @@ class Wiki:
         for card in sorted(self.by_type("AGD"), key=lambda c: c.id):
             if card.error is not None or card.get("status") in closed:
                 continue
-            planned = sorted(m for m in card.list("予定会議") if m)
+            planned = sorted(set(m for m in card.list("予定会議") if m)
+                             | set(self.discussed_in(card)))
             if meeting_id is None:
                 carried = bool(planned) and all(m in self.meetings for m in planned)
                 out.append((card, carried))

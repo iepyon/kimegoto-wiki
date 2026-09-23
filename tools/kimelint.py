@@ -22,7 +22,7 @@ import json
 import re
 import sys
 
-from tools import quotes, schema
+from tools import agenda_sync_cmd, quotes, schema
 from tools.cards import Wiki, resolve_root
 
 ERROR = "error"
@@ -950,6 +950,59 @@ def check_agd_closed_open(ctx):
         if rest:
             out.append(_p(check_agd_closed_open, c.id,
                           "`決着` だが、下に閉じていないカードが残っている: %s" % " / ".join(rest)))
+    return out
+
+
+@check("agd-unsynced", WARNING)
+def check_agd_unsynced(ctx):
+    """論点に議題が付いているのに、議題カードの側に書き戻されていない。
+
+    `kime agenda-sync --write` を回せば機械的に直る。
+    """
+    return [_p(check_agd_unsynced, card.id,
+               "%s（`kime agenda-sync --write` で直る）" % " / ".join(notes))
+            for card, _, notes in agenda_sync_cmd.plan(ctx.wiki)]
+
+
+def _bigrams(text, strip):
+    for word in sorted(strip, key=len, reverse=True):
+        text = text.replace(word, "")
+    text = re.sub(r"[\s、。，．,.!?！？「」『』（）()・:：]", "", text)
+    return [text[i:i + 2] for i in range(len(text) - 1)] or ([text] if text else [])
+
+
+def _dice(a, b):
+    if not a or not b:
+        return 0.0
+    rest, common = list(b), 0
+    for gram in a:
+        if gram in rest:
+            rest.remove(gram)
+            common += 1
+    return 2.0 * common / (len(a) + len(b))
+
+
+@check("q-restates-agenda", WARNING)
+def check_q_restates_agenda(ctx):
+    """議題を言い換えただけの Q。
+
+    結論が出なかった議題は、議題が開いたままであることが「まだ決まっていない」を表す。
+    同じ問いを Q に立てると二重になる。Q は「決めるために足りないもの」だけ。
+    """
+    spec = ctx.o.agenda
+    strip = spec.get("restate-strip", [])
+    limit = int(spec.get("restate-similarity-percent", 100)) / 100.0
+    out = []
+    for q in ctx.of_type("Q"):
+        parent = ctx.wiki.get(q.get("議題")) if q.get("議題") else None
+        if parent is None or parent.type != "AGD":
+            continue
+        score = _dice(_bigrams(q.get("title"), strip), _bigrams(parent.get("title"), strip))
+        if score >= limit:
+            out.append(_p(check_q_restates_agenda, q.id,
+                          "議題 %s（%s）を言い換えただけに見える。結論が出なかっただけなら"
+                          "議題を開いたままにし、Q は「何が足りないか」だけに立てる"
+                          % (parent.id, parent.get("title"))))
     return out
 
 

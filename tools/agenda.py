@@ -15,12 +15,19 @@ lint に依存させない（gen_views と同じ理由）。
 class Item:
     """アジェンダに載る議題1件と、その下にぶら下がるカード。"""
 
-    def __init__(self, card, carried, decisions, questions, actions):
+    def __init__(self, card, carried, decisions, questions, actions, history=""):
         self.card = card
-        self.carried = carried        # 前回までに扱い、決着していない
+        self.carried = carried        # 前回までに載り、決着していない
         self.decisions = decisions    # これまでの決定（経緯として）
         self.questions = questions    # 未決の問い
         self.actions = actions        # 未完了のアクション
+        self.history = history        # 「MTG-… で扱ったが結論なし」「MTG-… で扱えず」
+
+    @property
+    def label(self):
+        if not self.carried:
+            return self.card.get("status")
+        return "持ち越し（%s）" % self.history if self.history else "持ち越し"
 
 
 class Section:
@@ -69,6 +76,36 @@ def fragile_assumptions(wiki):
                   key=lambda c: c.id)
 
 
+def history(wiki, card, meeting_id=None):
+    """持ち越しの中身。直近の会議で「扱ったが結論なし」か「扱えず」か。
+
+    扱ったかどうかは `segments.yaml` の論点に `議題` が付いたかで決まる（Pass 1）。
+    予定していた会議が開かれたのに論点が無ければ、扱えなかったということ。
+    会議がまだ開かれていない（ディレクトリが無い）予定は数えない。
+    """
+    def before(m):
+        return m in wiki.meetings and (meeting_id is None or m < meeting_id)
+
+    discussed = [m for m in wiki.discussed_in(card) if before(m)]
+    planned = [m for m in card.list("予定会議") if before(m)]
+    last_discussed = discussed[-1] if discussed else ""
+    last_planned = max(planned) if planned else ""
+    if last_planned and last_planned > last_discussed:
+        return "%s で扱えず" % last_planned
+    if last_discussed:
+        return "%s で扱ったが結論なし" % last_discussed
+    return ""
+
+
+def closing_hint(item):
+    """確認②で議題を締めるときの目安。判定するのは人間で、これは候補を示すだけ。"""
+    if item.questions:
+        return "継続（%s が未決）" % " / ".join(c.id for c in item.questions)
+    if item.decisions:
+        return "決着候補"
+    return ""
+
+
 def agenda_items(wiki, meeting_id=None):
     out = []
     for card, carried in wiki.agenda_of(meeting_id):
@@ -77,7 +114,8 @@ def agenda_items(wiki, meeting_id=None):
             card, carried,
             [c for c in children if c.type == "DEC" and c.get("status") != "覆された"],
             [c for c in children if c.type == "Q" and is_open_question(c)],
-            [c for c in children if c.type == "ACT" and is_open_action(c)]))
+            [c for c in children if c.type == "ACT" and is_open_action(c)],
+            history(wiki, card, meeting_id) if carried else ""))
     return out
 
 
