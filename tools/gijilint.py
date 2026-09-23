@@ -869,7 +869,7 @@ def check_dec_unconfirmed(ctx):
 def check_log_barren(ctx):
     """議論・確認の LOG から何も生えていない。
 
-    README が「最大のエラー源は幻覚ではなく欠落（89% 対 26%）」とする穴を
+    docs/design.md が「最大のエラー源は幻覚ではなく欠落（89% 対 26%）」とする穴を
     事後に拾う。引用検証は幻覚しか捕まえないので、こちら側が要る。
 
     `meetings/*/extraction-notes.yaml` に理由が書かれている LOG は鳴らさない。

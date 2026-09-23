@@ -1,4 +1,4 @@
-<!-- 生成物: gen_views.py agenda-next による機械生成。手編集禁止。生成基準日: 2026-09-21 / ontology-version: 1 -->
+<!-- 生成物: gen_views.py agenda-next による機械生成。手編集禁止。生成基準日: 2026-09-23 / ontology-version: 1 -->
 
 # 次回アジェンダ（案）
 

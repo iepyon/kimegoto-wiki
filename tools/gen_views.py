@@ -310,7 +310,7 @@ def view_metrics(ctx):
         return "—" if not b else "%d%% (%d/%d)" % (round(100 * a / b), a, b)
 
     out = [_header("metrics", ctx), "", "# 指標", "",
-           "README「判定基準」のうち、機械で数えられる分だけ。"
+           "docs/design.md「判定基準」のうち、機械で数えられる分だけ。"
            "残り（網羅性、アジェンダが使われた回数、矛盾検出の発火）は人が見る。", ""]
 
     out.append(_section("土台", _table(["指標", "値"], [
