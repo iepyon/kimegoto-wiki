@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 410" width="880" height="410" role="img" aria-labelledby="t d">
+  <title id="t">議題の状態と、結論が出なかったとき</title>
+  <desc id="d">議題は未着手で起票され、会議で扱うと agenda-sync が継続に書き戻す。決着か取り下げかは人が確認②の 2-5 で判定する。扱えなかった議題も、扱ったが結論が出なかった議題も、次回へ持ち越す。結論が出なかったとき、理由や待ち相手が発言に出たなら足りないものを Q にする。次回またで終わったなら何も起票しない。議題そのものを言い換えた Q は作らない。</desc>
+  <style>
+    svg { --ground:#F2F5F5; --surface:#FFFFFF; --rule:#D5DCDE; --ink:#141A1D; --ink2:#3D484E; --ink3:#6B767C;
+          --accent:#2B6873; --accent-soft:#DCE8EA; --human:#8D6117; --flag:#A4451F; --flag-soft:#F5E2DA; }
+    @media (prefers-color-scheme: dark) {
+      svg { --ground:#0F1416; --surface:#171E21; --rule:#2D3639; --ink:#E3E9EA; --ink2:#A8B4B8; --ink3:#7B878C;
+            --accent:#79BEC3; --accent-soft:#1B3135; --human:#D5A75E; --flag:#E0835C; --flag-soft:#2E1E17; }
+    }
+    text { font-family:'Hiragino Sans','Yu Gothic','Noto Sans JP','Noto Sans CJK JP','IPAGothic',sans-serif; fill:var(--ink); }
+    .bg { fill:var(--ground); }
+    .state { fill:var(--surface); stroke:var(--accent); stroke-width:1.8; }
+    .done { fill:var(--accent-soft); stroke:var(--accent); stroke-width:1.8; }
+    .muted { fill:var(--surface); stroke:var(--rule); stroke-width:1.5; }
+    .box { fill:var(--surface); stroke:var(--rule); stroke-width:1.5; }
+    .stateText { font-size:16px; font-weight:700; }
+    .stateSub { font-size:12px; fill:var(--ink3); }
+    .edge { stroke:var(--accent); stroke-width:1.8; fill:none; }
+    .edgeHuman { stroke:var(--human); stroke-width:1.8; fill:none; }
+    .edgeMuted { stroke:var(--ink3); stroke-width:1.5; fill:none; }
+    .lbl { font-size:12px; fill:var(--accent); font-weight:700; }
+    .lblSub { font-size:11.5px; fill:var(--ink3); }
+    .lblHuman { font-size:12px; fill:var(--human); font-weight:700; }
+    .loopLbl { font-size:12px; fill:var(--ink2); }
+    .rule { stroke:var(--rule); stroke-width:1.5; }
+    .h { font-size:15px; font-weight:700; }
+    .bh { font-size:13.5px; font-weight:700; }
+    .b { font-size:12.5px; fill:var(--ink2); }
+    .ex { font-size:12px; fill:var(--ink3); }
+    .no { fill:var(--flag-soft); }
+    .noText { font-size:13px; font-weight:700; fill:var(--flag); }
+    .tipAccent { fill:var(--accent); }
+    .tipHuman { fill:var(--human); }
+    .tipMuted { fill:var(--ink3); }
+  </style>
+  <defs>
+    <marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="tipAccent"/></marker>
+    <marker id="hu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="tipHuman"/></marker>
+    <marker id="mu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="tipMuted"/></marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="880" height="410" rx="14"/>
+
+  <!-- 状態 -->
+  <rect class="state" x="40" y="44" width="150" height="64" rx="32"/>
+  <text x="115" y="74" class="stateText" text-anchor="middle">未着手</text>
+  <text x="115" y="94" class="stateSub" text-anchor="middle">kime new agenda</text>
+
+  <rect class="state" x="330" y="44" width="150" height="64" rx="32"/>
+  <text x="405" y="74" class="stateText" text-anchor="middle">継続</text>
+  <text x="405" y="94" class="stateSub" text-anchor="middle">扱ったが未決着</text>
+
+  <rect class="done" x="660" y="30" width="180" height="50" rx="25"/>
+  <text x="750" y="61" class="stateText" text-anchor="middle">決着</text>
+  <rect class="muted" x="660" y="96" width="180" height="42" rx="21"/>
+  <text x="750" y="122" class="stateText" text-anchor="middle" style="font-size:14px;fill:var(--ink2)">取り下げ</text>
+
+  <!-- 遷移 -->
+  <path class="edge" d="M192,76 L326,76" marker-end="url(#ac)"/>
+  <text x="259" y="66" class="lbl" text-anchor="middle">会議で扱った</text>
+  <text x="259" y="94" class="lblSub" text-anchor="middle">agenda-sync が書く</text>
+
+  <path class="edgeHuman" d="M482,68 L656,56" marker-end="url(#hu)"/>
+  <path class="edgeHuman" d="M482,86 L656,116" marker-end="url(#hu)"/>
+  <text x="566" y="48" class="lblHuman" text-anchor="middle">人が判定</text>
+  <text x="566" y="126" class="lblSub" text-anchor="middle">確認② 2-5</text>
+
+  <!-- 持ち越し -->
+  <path class="edgeMuted" d="M92,110 C92,152 138,152 138,112" marker-end="url(#mu)"/>
+  <text x="115" y="170" class="loopLbl" text-anchor="middle">扱えず → 次回へ</text>
+  <path class="edgeMuted" d="M382,110 C382,152 428,152 428,112" marker-end="url(#mu)"/>
+  <text x="405" y="170" class="loopLbl" text-anchor="middle">結論なし → 次回へ</text>
+
+  <line class="rule" x1="24" y1="196" x2="856" y2="196"/>
+
+  <!-- 結論が出なかったとき -->
+  <text x="40" y="228" class="h">結論が出なかったとき</text>
+
+  <rect class="box" x="40" y="244" width="390" height="104" rx="10"/>
+  <text x="58" y="270" class="bh">理由や待ち相手が発言に出た</text>
+  <text x="58" y="294" class="b">→ 足りないものを Q にする（議題の下へ）</text>
+  <text x="58" y="318" class="ex">例: 「費用は持ち帰って確認します」</text>
+  <text x="58" y="336" class="ex">　→ Q「追加費用をどう扱うか」</text>
+
+  <rect class="box" x="450" y="244" width="390" height="104" rx="10"/>
+  <text x="468" y="270" class="bh">「次回また」で終わった</text>
+  <text x="468" y="294" class="b">→ 何も起票しない</text>
+  <text x="468" y="318" class="ex">議題が開いたままであることが</text>
+  <text x="468" y="336" class="ex">「まだ決まっていない」を表す</text>
+
+  <rect class="no" x="40" y="362" width="800" height="32" rx="8"/>
+  <text x="440" y="383" class="noText" text-anchor="middle">✕ 議題そのものを言い換えた Q は作らない（lint: q-restates-agenda）</text>
+</svg>
