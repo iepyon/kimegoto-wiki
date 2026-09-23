@@ -7,6 +7,13 @@ Pass 1 が `segments.yaml` の論点に `議題` を付けた時点で、その�
 - `status: 未着手` → `継続`（扱ったが、決着は人間が決める）
 - `予定会議` にその会議が無ければ足す（会議の場で出て、その場で扱った議題）
 
+もう1つ、**持ち越しでアジェンダに載った会議**も `予定会議` に足す。開いた議題は
+決着するまで次回のアジェンダに自動で載る（`Wiki.agenda_of`）が、載った会議は
+どこにも書かれない。書かないと、その会議で扱えなかったことが消え、2回続けて
+扱えなかった議題が「1回前に扱ったが結論なし」に見える（`docs/dryrun-20260923.md` の 1）。
+「載っていた」は機械が決めているので、ここも機械が書く。対象は Pass 1 が済んだ
+（`segments.yaml` がある）会議で、議題の `提起日` 以降のものに限る。
+
 `決着` / `取り下げ` には触らない。閉じるのは人間（確認②の 2-5）。
 lint の `agd-unsynced` は、ここを回し忘れたときの保険として残る。
 
@@ -27,6 +34,7 @@ CONTINUED = "継続"
 def plan(wiki, meeting_id=None):
     """[(議題カード, [(フィールド, 値), ...], [説明, ...]), ...]。直すものが無い議題は出さない。"""
     closed = set(wiki.ontology.agenda_closed_status())
+    on_agenda = _carried_meetings(wiki, meeting_id)
     out = []
     for card in sorted(wiki.by_type("AGD"), key=lambda c: c.id):
         if card.error is not None or card.get("status") in closed:
@@ -34,19 +42,37 @@ def plan(wiki, meeting_id=None):
         discussed = wiki.discussed_in(card)
         if meeting_id:
             discussed = [m for m in discussed if m == meeting_id]
-        if not discussed:
-            continue
         sets, notes = [], []
-        if card.get("status") == OPENED:
+        if discussed and card.get("status") == OPENED:
             sets.append(("status", CONTINUED))
             notes.append("status: %s → %s（%s で扱った）" % (OPENED, CONTINUED, discussed[-1]))
         planned = [m for m in card.list("予定会議") if m]
         missing = [m for m in discussed if m not in planned]
+        raised = card.get("提起日") or ""
+        skipped = [m for m in on_agenda.get(card.id, [])
+                   if m not in planned and m not in missing
+                   and wiki.meetings[m].date >= raised]
+        if missing or skipped:
+            sets.append(("予定会議", "[%s]" % ", ".join(sorted(planned + missing + skipped))))
         if missing:
-            sets.append(("予定会議", "[%s]" % ", ".join(sorted(planned + missing))))
             notes.append("予定会議に %s を足す（その会議で扱った）" % " / ".join(missing))
+        if skipped:
+            notes.append("予定会議に %s を足す（持ち越しでアジェンダに載ったが扱えず）"
+                         % " / ".join(skipped))
         if sets:
             out.append((card, sets, notes))
+    return out
+
+
+def _carried_meetings(wiki, meeting_id=None):
+    """{AGD id: [持ち越しでアジェンダに載った、Pass 1 済みの会議, ...]}。"""
+    held = [m for m in sorted(wiki.segments) if m in wiki.meetings]
+    if meeting_id:
+        held = [m for m in held if m == meeting_id]
+    out = {}
+    for m in held:
+        for card, _ in wiki.agenda_of(m):
+            out.setdefault(card.id, []).append(m)
     return out
 
 

@@ -85,7 +85,8 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
 - `議題` は Pass 1 が論点に付け、`kime new --from-log` が子へ写す。手で付け替えない
 - 議題の文言は提起者の言葉のまま。議題は決定ではない
 - 載る会議は `予定会議` と status から機械で決まり、決着するまで次回へ持ち越す。閉じるのは人間
-- 扱った議題の `未着手 → 継続` と `予定会議` の追記は `kime agenda-sync` が書く
+- 扱った議題の `未着手 → 継続` と `予定会議` の追記は `kime agenda-sync` が書く。
+  持ち越しで載ったが扱えなかった会議も `予定会議` に足す（書かないと「扱えず」が消える）
 - 結論が出なかった議題は開いたままにする。議題の言い換えを Q にしない。Q は「決めるために足りないもの」だけ
 - アジェンダは議事録と同じくこの構造の射影（`kime agenda-input`）。手で書き足さず、議題を起票する
 
@@ -118,7 +119,7 @@ sh tools/setup.sh [案件名]                     # 初回。門を立てて一�
 python3 tools/kime.py                          # サブコマンド一覧
 python3 tools/kime.py lint                     # 整合性検査（error 0 が不変条件）
 python3 tools/kime.py verify-quotes --fix      # 引用不一致を「推測」に降格
-python3 tools/kime.py scope-questions --meeting MTG-... [--write]  # 範囲の問いを定型で起票
+python3 tools/kime.py scope-questions --meeting MTG-... [--write]  # 範囲の問いを定型で起票・判定済みなら閉じる
 python3 tools/kime.py unknown-terms --meeting MTG-...              # 未知語の候補を拾う
 python3 tools/kime.py views                    # ビュー再生成
 python3 tools/kime.py agenda                   # 次回アジェンダ（ビュー）

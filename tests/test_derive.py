@@ -122,6 +122,20 @@ class 雛形への書き込み(WikiTestCase):
         self.assertIn("範囲: 判定保留", text)
         self.assertIn("代替案: []", text)
 
+    def test_アクションの起票日は会議日になる(self):
+        # 雛形の YYYY-MM-DD を残すと、いつ起票したかが消える。
+        w = self.wiki([("LOG", "LOG-20260918-01", {})])
+        _, text, _, _ = new_card(w, "ACT", meeting="MTG-20260918", title="t",
+                                 role="開発リーダ", log="LOG-20260918-01")
+        self.assertIn("  - 2026-09-18: 起票", text)
+        self.assertNotIn("YYYY-MM-DD", text)
+
+    def test_用語の初出は生成元の_LOG(self):
+        w = self.wiki([("LOG", "LOG-20260918-01", {})])
+        _, text, _, _ = new_card(w, "TERM", meeting="MTG-20260918", title="OIDC",
+                                 log="LOG-20260918-01")
+        self.assertIn("初出: LOG-20260918-01", text)
+
     def test_役割を渡さなければ雛形のまま(self):
         w = self.wiki([("LOG", "LOG-20260918-01", {})])
         _, text, _, _ = new_card(w, "DEC", meeting="MTG-20260918", title="t")

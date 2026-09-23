@@ -158,7 +158,7 @@ segments:
 - 載っていない話題が会議の場で議題として出たなら、ここで起票するかを決める
   （`kime new agenda ... --meeting MTG-20260925 --write`）
 - 粒度の確認が済んだら、扱った議題を議題カードへ書き戻す。`未着手 → 継続` と
-  `予定会議` の追記は一意に決まるので機械が書く:
+  `予定会議` の追記（持ち越しで載ったのに扱えなかった会議を含む）は一意に決まるので機械が書く:
 
   ```sh
   python3 tools/kime.py agenda-sync --meeting MTG-20260925 --write
@@ -255,6 +255,7 @@ python3 tools/kime.py minutes-input --meeting MTG-20260925 --edition customer   
 ```
 
 - 議事録はカードから作る生成物で、**ファイルには保存しない**。直すならカードを直して出し直す
+- 材料には議題の節が付く（議題ごとに、この会議で扱ったか／扱えずか・いまの状態・この会議の決定と未決）
 - 顧客提出版で出せない情報は CLI が機械的に落とす（`ontology.yaml` の `editions.customer`）
 
 ACT を GitHub Issue にしたいときは「ACT-014 を Issue にして」
@@ -275,7 +276,7 @@ ACT を GitHub Issue にしたいときは「ACT-014 を Issue にして」
 | `kime unknown-terms --meeting MTG-...` | ② 未知語の候補を拾う |
 | `kime new decision --title "..." --from-log LOG-... --role 顧客PM --write` | ③ カードを起こす（採番つき） |
 | `kime update <ID> --set k=v` | ③④ 既存カードを書き換える |
-| `kime scope-questions --meeting MTG-... --write` | ③ 範囲の問いを起票 |
+| `kime scope-questions --meeting MTG-... --write` | ③ 範囲の問いを起票／④ 2-0 の判定後に閉じる |
 | `kime verify-quotes --fix` | ③ 引用の照合と降格 |
 | `kime review --meeting MTG-...` | ④ 確認のチェックリスト |
 | `kime promote-input --meeting MTG-...` | ④ 昇格候補の材料 |

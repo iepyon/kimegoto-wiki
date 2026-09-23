@@ -146,5 +146,64 @@ class 起票(WikiTestCase):
         self.assertEqual(len(list((w.root / "questions").glob("Q-*.md"))), 1)
 
 
+class 議題を写さない(WikiTestCase):
+
+    def test_論点に議題が付いていても範囲の問いには写さない(self):
+        # 範囲は契約の問いで、議題を決める材料ではない。写すと議題が締まらない。
+        segments = {"MTG-20260918": (
+            "meeting: MTG-20260918\nsegments:\n"
+            "  - seq: 1\n    title: 論点\n    種別: 議論\n"
+            "    時刻: \"00:00:00 - 00:10:00\"\n    参加役割: [顧客PM]\n"
+            "    議題: AGD-001\n")}
+        w = self.wiki([
+            ("LOG", "LOG-20260918-01", {}),
+            ("AGD", "AGD-001", {}),
+            ("DEC", "DEC-001", {"title": "メールは対象外", "範囲": "判定保留",
+                                "議題": "AGD-001"}),
+        ], segments=segments)
+        run("--root", str(w.root), "--write")
+        created = (w.root / "questions" / "Q-001.md").read_text(encoding="utf-8")
+        self.assertRegex(created, r"(?m)^議題:\s*$")
+
+
+class 判定済みの問いを閉じる(WikiTestCase):
+
+    def _wiki(self, scope, extra=()):
+        return self.wiki([
+            ("LOG", "LOG-20260918-01", {}),
+            ("DEC", "DEC-001", {"title": "メールは対象外", "範囲": scope}),
+            ("Q", "Q-001", {"title": "メールは対象外は当初合意範囲内か", "resolved_by": ""}),
+        ] + list(extra))
+
+    def test_範囲を判定したらwriteで閉じる(self):
+        w = self._wiki("当初合意内")
+        self.assertEqual(run("--root", str(w.root), "--write"), 0)
+        q = self.wiki_at(w.root).get("Q-001")
+        self.assertEqual(q.get("status"), "解決")
+        self.assertEqual(q.get("resolved_by"), "DEC-001")
+
+    def test_writeなしでは閉じない(self):
+        w = self._wiki("範囲外(追加)")
+        run("--root", str(w.root))
+        self.assertEqual(self.wiki_at(w.root).get("Q-001").get("status"), "未決")
+
+    def test_判定保留のままなら閉じない(self):
+        w = self._wiki("判定保留")
+        run("--root", str(w.root), "--write")
+        self.assertEqual(self.wiki_at(w.root).get("Q-001").get("status"), "未決")
+
+    def test_同じLOGの別の決定の問いを閉じない(self):
+        # 控え（接尾辞と LOG の一致）で見つかった問いが別の決定のものなら、閉じると
+        # 答えの無い問いが消える。
+        w = self.wiki([
+            ("LOG", "LOG-20260918-01", {}),
+            ("DEC", "DEC-001", {"title": "甲を採る", "範囲": "当初合意内"}),
+            ("DEC", "DEC-002", {"title": "乙を採る", "範囲": "判定保留"}),
+            ("Q", "Q-001", {"title": "乙を採るは当初合意範囲内か", "resolved_by": ""}),
+        ])
+        run("--root", str(w.root), "--write")
+        self.assertEqual(self.wiki_at(w.root).get("Q-001").get("status"), "未決")
+
+
 if __name__ == "__main__":
     unittest.main()

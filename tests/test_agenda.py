@@ -306,6 +306,51 @@ class 議題の書き戻し(WikiTestCase):
         self.assertFalse(kimelint.run(w, today=TODAY, only={"agd-unsynced"}))
 
 
+class 持ち越しで載った会議の書き戻し(WikiTestCase):
+    """開いた議題は次回に自動で載るが、載った会議はどこにも書かれていなかった。
+
+    書き戻さないと、2回続けて扱えなかった議題が「1回前に扱ったが結論なし」に見える。
+    """
+
+    def _wiki(self, segments=TWO_MEETINGS, **overrides):
+        card = dict(status="継続", 予定会議=["MTG-20260904"], 提起日="2026-08-28")
+        card.update(overrides)
+        return self.wiki([LOG, agd("AGD-001", **card)], segments=segments)
+
+    def test_載ったが扱えなかった会議を予定会議に足す(self):
+        w = self._wiki()
+        (card, sets, notes), = agenda_sync_cmd.plan(w)
+        self.assertEqual(dict(sets), {"予定会議": "[MTG-20260904, MTG-20260918]"})
+        self.assertIn("扱えず", notes[0])
+
+    def test_書き戻すと次回に扱えずと出る(self):
+        w = self._wiki()
+        quiet(agenda_sync_cmd.main, ["--root", str(w.root), "--write"])
+        item = agenda.agenda_items(self.wiki_at(w.root), "MTG-20261002")[0]
+        self.assertEqual(item.label, "持ち越し（MTG-20260918 で扱えず）")
+
+    def test_確認の2_5に扱えずで出る(self):
+        w = self._wiki()
+        quiet(agenda_sync_cmd.main, ["--root", str(w.root), "--write"])
+        text = Bundle(self.wiki_at(w.root), TODAY).review("MTG-20260918")
+        row = next(l for l in text.splitlines() if l.startswith("| AGD-001"))
+        self.assertIn("扱えず", row)
+
+    def test_提起より前の会議には足さない(self):
+        w = self._wiki(segments={"MTG-20260918": TWO_MEETINGS["MTG-20260918"]},
+                       予定会議=[], status="未着手", 提起日="2026-09-20")
+        self.assertEqual(agenda_sync_cmd.plan(w), [])
+
+    def test_会議を指定すればその会議だけ(self):
+        w = self._wiki()
+        self.assertEqual(agenda_sync_cmd.plan(w, "MTG-20260904"), [])
+
+    def test_先の会議に予定した議題は足さない(self):
+        w = self._wiki(segments={"MTG-20260918": TWO_MEETINGS["MTG-20260918"]},
+                       予定会議=["MTG-20261002"], status="未着手")
+        self.assertEqual(agenda_sync_cmd.plan(w), [])
+
+
 class 議題の言い換え(WikiTestCase):
     def problems(self, q_title, agd_title="図面PDFを検索対象に入れるかを決めたい"):
         w = self.wiki([LOG, agd("AGD-001", title=agd_title),

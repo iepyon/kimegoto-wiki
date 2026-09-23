@@ -393,6 +393,16 @@ class PromoteGateTest(LintTestCase):
         self.assertRaised([LOG, ("DEC", "DEC-001", {"なぜ": "", "前提": ["ASM-001"]}),
                            ("ASM", "ASM-001", {"崩れたら見直す決定": ["DEC-001"]})], "promote-gate")
 
+    def test_なぜが記録なしだけなら鳴る(self):
+        self.assertRaised([LOG, ("DEC", "DEC-001", {"なぜ": "記録なし", "前提": ["ASM-001"]}),
+                           ("ASM", "ASM-001", {"崩れたら見直す決定": ["DEC-001"]})], "promote-gate")
+
+    def test_却下理由が記録されていれば鳴らない(self):
+        self.assertQuiet([LOG, ("DEC", "DEC-001", {
+            "なぜ": "", "前提": ["ASM-001"],
+            "代替案": [{"案": "外部SaaS", "却下理由": "社外にデータを出せない"}]}),
+            ("ASM", "ASM-001", {"崩れたら見直す決定": ["DEC-001"]})], "promote-gate")
+
     def test_ひとつでも理由があれば鳴らない(self):
         self.assertQuiet([LOG, ("DEC", "DEC-001", {"なぜ": "失効保証を IdP に寄せるため",
                                                    "前提": ["ASM-001"]}),
@@ -407,9 +417,15 @@ class ScopePendingQTest(LintTestCase):
     def test_判定保留なのに未決Qが無ければ鳴る(self):
         self.assertRaised([LOG, ("DEC", "DEC-001", {"範囲": "判定保留"})], "scope-pending-q")
 
-    def test_同じ論点に未決Qがあれば鳴らない(self):
+    def test_範囲の問いが未決であれば鳴らない(self):
         self.assertQuiet([LOG, ("DEC", "DEC-001", {"範囲": "判定保留"}),
-                          ("Q", "Q-001", {"status": "未決"})], "scope-pending-q")
+                          ("Q", "Q-001", {"title": "決定は当初合意範囲内か"})],
+                         "scope-pending-q")
+
+    def test_同じ論点の別の未決Qでは黙らない(self):
+        # 1つの論点から Q が複数生える。範囲を聞いていないことに変わりはない。
+        self.assertRaised([LOG, ("DEC", "DEC-001", {"範囲": "判定保留"}),
+                           ("Q", "Q-001", {"status": "未決"})], "scope-pending-q")
 
     def test_判定保留でなければ鳴らない(self):
         self.assertQuiet([LOG, ("DEC", "DEC-001", {"範囲": "当初合意内"})], "scope-pending-q")
@@ -426,6 +442,34 @@ class ScopePendingQTest(LintTestCase):
                                 {"範囲": "判定保留", "status": "覆された",
                                  "superseded_by": "DEC-002"}),
                           ("DEC", "DEC-002", {"範囲": "当初合意内"})], "scope-pending-q")
+
+
+class HistoryDateTest(LintTestCase):
+    def test_更新履歴に雛形の日付が残っていれば鳴る(self):
+        self.assertRaised([LOG, ("ACT", "ACT-001", {"更新履歴": [{"YYYY-MM-DD": "起票"}]})],
+                          "date-format")
+
+    def test_更新履歴の日付が正しければ鳴らない(self):
+        self.assertQuiet([LOG, ("ACT", "ACT-001", {"更新履歴": [{"2026-09-18": "起票"}]})],
+                         "date-format")
+
+
+class ScopeQUnclosedTest(LintTestCase):
+    def test_範囲を判定したのに範囲の問いが開いていれば鳴る(self):
+        self.assertRaised([LOG, ("DEC", "DEC-001", {"範囲": "当初合意内"}),
+                           ("Q", "Q-001", {"title": "決定は当初合意範囲内か"})],
+                          "scope-q-unclosed")
+
+    def test_閉じていれば鳴らない(self):
+        self.assertQuiet([LOG, ("DEC", "DEC-001", {"範囲": "当初合意内"}),
+                          ("Q", "Q-001", {"title": "決定は当初合意範囲内か",
+                                          "status": "解決", "resolved_by": "DEC-001"})],
+                         "scope-q-unclosed")
+
+    def test_判定保留のままなら鳴らない(self):
+        self.assertQuiet([LOG, ("DEC", "DEC-001", {"範囲": "判定保留"}),
+                          ("Q", "Q-001", {"title": "決定は当初合意範囲内か"})],
+                         "scope-q-unclosed")
 
 
 class AsmGateTest(LintTestCase):

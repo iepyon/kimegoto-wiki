@@ -22,7 +22,8 @@ import json
 import re
 import sys
 
-from tools import agenda_sync_cmd, quotes, schema
+from tools import agenda_sync_cmd, quotes, schema, scope_cmd
+from tools.bundle import Bundle
 from tools.cards import Wiki, resolve_root
 
 ERROR = "error"
@@ -178,7 +179,11 @@ def check_vocab(ctx):
 
 @check("date-format", ERROR)
 def check_date_format(ctx):
-    """日付が YYYY-MM-DD でない。"""
+    """日付が YYYY-MM-DD でない。
+
+    日付をキーにする構造化フィールド（`更新履歴` の `- 2026-09-18: 起票`）も見る。
+    雛形の `YYYY-MM-DD` が残ったままだと、いつ起票したかが消える。
+    """
     out = []
     for c in ctx.sound:
         for name in ctx.o.fields_of_kind(c.type, "date"):
@@ -186,6 +191,19 @@ def check_date_format(ctx):
             if raw and ctx.date(c, name) is None:
                 out.append(_p(check_date_format, c.id,
                               "`%s` が YYYY-MM-DD でない: %s" % (name, raw)))
+        for name, spec in ctx.o.field_specs(c.type).items():
+            if spec.get("kind") != "struct-list":
+                continue
+            if ctx.o.structs.get(spec.get("struct"), {}).get("free-key") != "date":
+                continue
+            for i, row in enumerate(c.structs(name), start=1):
+                for key in (row if isinstance(row, dict) else {}):
+                    try:
+                        datetime.date.fromisoformat(str(key))
+                    except ValueError:
+                        out.append(_p(check_date_format, c.id,
+                                      "`%s` の%d件目の日付が YYYY-MM-DD でない: %s"
+                                      % (name, i, key)))
     return out
 
 
@@ -652,8 +670,10 @@ def check_promote_gate(ctx):
     判定する根拠が無い。門は `kime promote-input` が `なぜ` 未記入の DEC を
     入力から落とすことで物理的に閉じる。
 
-    ここで見るのはその副作用のほう — 紐づく決定がすべて `なぜ` 未記入なら、
-    その制約は「なぜそれが効くのか」を辿れない。将来の議論で使えない。
+    ここで見るのはその副作用のほう — 紐づく決定がすべて門を通らない（`なぜ` も
+    却下理由も記録されておらず、契約制約の決定でもない）なら、その制約は
+    「なぜそれが効くのか」を辿れない。将来の議論で使えない。判定は
+    `Bundle.passes_gate` と同じものを使う。
     """
     out = []
     for c in ctx.of_type("CON", "ASM"):
@@ -665,9 +685,9 @@ def check_promote_gate(ctx):
         decisions = [d for d in decisions if d is not None and d.error is None]
         if not decisions:
             continue
-        if all(not d.get("なぜ") for d in decisions):
+        if not any(Bundle.passes_gate(d) for d in decisions):
             out.append(_p(check_promote_gate, c.id,
-                          "`%s` が指す決定（%s）はすべて `なぜ` が未記入。"
+                          "`%s` が指す決定（%s）はすべて理由が記録されていない。"
                           "この制約は理由を辿れず、将来の議論で効かない"
                           % (field, ", ".join(d.id for d in decisions))))
     return out
@@ -675,31 +695,33 @@ def check_promote_gate(ctx):
 
 @check("scope-pending-q", WARNING)
 def check_scope_pending_q(ctx):
-    """`範囲: 判定保留` の DEC には Q が立っているはず。
+    """`範囲: 判定保留` の DEC には範囲の問いが立っているはず。
 
-    同じ LOG から生えた未決 Q があるかで見る。DEC → Q の直接の参照は
-    設計上持たないので、これ以上厳密には判定できない。だから warning。
+    範囲の問いは `kime scope-questions` が定型の題名で起票するので、決定から
+    一意に引ける（題名の一致、縮めて書かれていれば接尾辞と LOG の一致）。
+    同じ LOG に別の未決 Q があるだけでは、範囲を誰にも聞いていないことに変わりない。
 
     対象は `種別: 交渉可能` / `契約制約` に限る。技術判断の範囲を顧客に
     問う Q は起票しない規約なので（`.claude/skills/extract/SKILL.md`）、
     ここで鳴らすと消せない warning になる。
     """
-    ASKABLE = ("交渉可能", "契約制約")
-    out = []
-    pending_questions = [q for q in ctx.of_type("Q") if q.get("status") == "未決"]
-    for c in ctx.of_type("DEC"):
-        if c.get("範囲") != "判定保留":
-            continue
-        if c.get("status") == "覆された":
-            continue          # 覆った決定の範囲は、もう誰にも聞かない
-        if c.get("種別") not in ASKABLE:
-            continue          # 技術判断の範囲は顧客に問わない
-        logs = set(c.list("derived_from"))
-        if any(logs & set(q.list("derived_from")) for q in pending_questions):
-            continue
-        out.append(_p(check_scope_pending_q, c.id,
-                      "`範囲: 判定保留` だが、同じ論点に未決の Q が無い"))
-    return out
+    return [_p(check_scope_pending_q, c.id,
+               "`範囲: 判定保留` だが、範囲の問いが無い（`kime scope-questions --write` で起票する）")
+            for c, _, existing, _ in scope_cmd.plan(ctx.wiki)
+            if existing is None or existing.get("status") != "未決"]
+
+
+@check("scope-q-unclosed", WARNING)
+def check_scope_q_unclosed(ctx):
+    """範囲を判定したのに、その決定の範囲の問いが開いたまま。
+
+    確認② の 2-0 で `範囲` を書いたあと `kime scope-questions --write` を回せば
+    機械的に閉じる。開いたままだと、答えの出た問いが次回アジェンダに残る。
+    """
+    return [_p(check_scope_q_unclosed, question.id,
+               "%s の `範囲` は `%s` と判定済み（`kime scope-questions --write` で閉じる）"
+               % (decision.id, decision.get("範囲")))
+            for decision, question in scope_cmd.closable(ctx.wiki)]
 
 
 @check("asm-loadbearing", ERROR)

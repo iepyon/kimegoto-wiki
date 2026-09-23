@@ -87,6 +87,10 @@ def derived_fields(wiki, type_name, role="", log="", meeting="", kind="", today=
         if company:
             fields["担当"] = company
 
+    elif type_name == "TERM":
+        if log:
+            fields["初出"] = log
+
     elif type_name == "CON":
         _, source = o.role_derivation("所在") or ("", "")
         location = _role_field(wiki, role, source) if source else ""

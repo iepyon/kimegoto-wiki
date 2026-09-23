@@ -9,7 +9,14 @@
 起票の条件と題名の正本は `ontology.yaml` の `scope-question`。
 lint の `scope-pending-q` は、ここを回し忘れたときの保険として残る。
 
-既定は下書きの表示のみ。`--write` を付けたときだけカードを作る。
+範囲の問いには `議題` を写さない。範囲は契約の問いで、議題を決めるための材料では
+ない。写すと `範囲: 判定保留` の決定を1つでも含む議題が、確認②の 2-5 で必ず
+「継続」の目安になり、決着させると `agd-closed-open` が鳴る。
+
+確認② の 2-0 で人間が `範囲` を判定したら、その決定の範囲の問いは答えが出ている。
+閉じるのも一意に決まるので、ここで閉じる（`status: 解決` / `resolved_by: <その決定>`）。
+
+既定は下書きの表示のみ。`--write` を付けたときだけカードを作り、問いを閉じる。
 """
 
 import argparse
@@ -40,10 +47,9 @@ def _confirm_to(wiki, decision):
     return ""
 
 
-def pending_decisions(wiki, meeting_id=None):
-    """問いを立てるべき決定。`ontology.yaml` の条件をそのまま当てる。"""
+def _askable_decisions(wiki, meeting_id=None):
+    """範囲を顧客に問う種別の決定。`ontology.yaml` の `when-種別` をそのまま当てる。"""
     spec = wiki.ontology.scope_question or {}
-    want_scope = spec.get("when-範囲", "判定保留")
     want_kinds = spec.get("when-種別", [])
     if not isinstance(want_kinds, list):
         want_kinds = [want_kinds]
@@ -51,10 +57,20 @@ def pending_decisions(wiki, meeting_id=None):
             else wiki.by_type("DEC"))
     return sorted([c for c in pool
                    if c.error is None
-                   and c.get("範囲") == want_scope
                    and c.get("種別") in want_kinds
                    and c.get("status") not in ("覆された", "取り下げ")],
                   key=lambda c: c.id)
+
+
+def _pending_scope(wiki):
+    return (wiki.ontology.scope_question or {}).get("when-範囲", "判定保留")
+
+
+def pending_decisions(wiki, meeting_id=None):
+    """問いを立てるべき決定。`ontology.yaml` の条件をそのまま当てる。"""
+    want_scope = _pending_scope(wiki)
+    return [c for c in _askable_decisions(wiki, meeting_id)
+            if c.get("範囲") == want_scope]
 
 
 TITLE_SLOT = "{headline}"
@@ -69,6 +85,27 @@ def question_title(wiki, decision):
     return _template(wiki).replace(TITLE_SLOT, decision.headline(wiki.ontology))
 
 
+def _matches(wiki, decision):
+    """(題名が完全一致する問い or None, 接尾辞と LOG だけが合う問いの一覧)。"""
+    wanted = question_title(wiki, decision)
+    suffix = _template(wiki).split(TITLE_SLOT)[-1]
+    logs = {r for r in decision.list("derived_from")
+            if wiki.ontology.type_of_id(r) == "LOG"}
+    exact, loose = None, []
+    for card in sorted(wiki.by_type("Q"), key=lambda c: c.id):
+        if card.error is not None:
+            continue
+        title = card.get("title") or ""
+        if title == wanted:
+            exact = exact or card
+            continue
+        if suffix and not title.endswith(suffix):
+            continue
+        if logs & set(card.list("derived_from")):
+            loose.append(card)
+    return exact, loose
+
+
 def _existing(wiki, decision):
     """この決定に対する範囲の問いが既にあるか。
 
@@ -77,24 +114,40 @@ def _existing(wiki, decision):
     丸める」）、そこで取りこぼすと `--write` が二重起票する。
     **定型の接尾辞と、同じ LOG から生えていること**の2つで照合する。
     """
-    wanted = question_title(wiki, decision)
-    suffix = _template(wiki).split(TITLE_SLOT)[-1]
-    logs = {r for r in decision.list("derived_from")
-            if wiki.ontology.type_of_id(r) == "LOG"}
-    fallback = None
-    for card in wiki.by_type("Q"):
-        if card.error is not None:
+    exact, loose = _matches(wiki, decision)
+    # 1つの LOG から複数の決定が生えることがあるので、LOG の一致だけでは
+    # 決め手にならない。完全一致が見つからなかったときの控えにとどめる。
+    return exact or (loose[0] if loose else None)
+
+
+def _owned(wiki, decision):
+    """この決定の範囲の問いだと**言い切れる**もの。閉じるときに使う。
+
+    起票の重複を避けるだけなら控え（接尾辞と LOG の一致）で足りるが、閉じるときに
+    取り違えると、別の決定の範囲の問いが答えの無いまま消える。控えで見つかったものは、
+    候補が1つだけで、かつ別の決定の定型の題名と一致しないときに限る。
+    """
+    exact, loose = _matches(wiki, decision)
+    if exact is not None:
+        return exact
+    if len(loose) != 1:
+        return None
+    other_titles = {question_title(wiki, d) for d in wiki.by_type("DEC")
+                    if d.error is None and d.id != decision.id}
+    return None if loose[0].get("title") in other_titles else loose[0]
+
+
+def closable(wiki, meeting_id=None):
+    """範囲が判定済みなのに、範囲の問いが開いたままの決定。[(決定, 問い), ...]。"""
+    out = []
+    pending = _pending_scope(wiki)
+    for decision in _askable_decisions(wiki, meeting_id):
+        if decision.get("範囲") in ("", pending):
             continue
-        title = card.get("title") or ""
-        if title == wanted:
-            return card
-        if suffix and not title.endswith(suffix):
-            continue
-        # 1つの LOG から複数の決定が生えることがあるので、LOG の一致だけでは
-        # 決め手にならない。完全一致が見つからなかったときの控えにとどめる。
-        if fallback is None and logs & set(card.list("derived_from")):
-            fallback = card
-    return fallback
+        question = _owned(wiki, decision)
+        if question is not None and question.get("status") == "未決":
+            out.append((decision, question))
+    return out
 
 
 def plan(wiki, meeting_id=None):
@@ -121,9 +174,21 @@ def main(argv=None):
         return 2
 
     rows = plan(wiki, args.meeting)
-    if not rows:
-        print("`範囲: 判定保留` で問いを立てるべき決定は無い（%s）" % wiki.root)
+    to_close = closable(wiki, args.meeting)
+    if not rows and not to_close:
+        print("`範囲: 判定保留` で問いを立てるべき決定も、閉じるべき範囲の問いも無い（%s）"
+              % wiki.root)
         return 0
+
+    closed = 0
+    for decision, question in to_close:
+        verb = "閉じた" if args.write else "閉"
+        print("%s  %s → %s（範囲: %s）" % (verb, decision.id, question.id, decision.get("範囲")))
+        if args.write:
+            text = apply_updates(question.path.read_text(encoding="utf-8"),
+                                 sets=[("status", "解決"), ("resolved_by", decision.id)])
+            question.path.write_text(text, encoding="utf-8")
+        closed += 1
 
     created, skipped = 0, 0
     for decision, title, existing, confirm_to in rows:
@@ -145,8 +210,9 @@ def main(argv=None):
         # 根拠に立つので、照合先も決定と同じ発話になる。新しい引用は作らない。
         carried = [(name, decision.get(name))
                    for name in ("引用", "信頼度") if decision.get(name)]
-        if carried:
-            text = apply_updates(text, sets=carried)
+        # 論点から写った `議題` は外す（範囲は議題を決める材料ではない。冒頭の説明）。
+        carried.append(("議題", ""))
+        text = apply_updates(text, sets=carried)
         if target.exists():
             print("既にある: %s" % target, file=sys.stderr)
             return 1
@@ -162,9 +228,10 @@ def main(argv=None):
 
     print()
     if args.write:
-        print("%d件を起票、%d件は既にある" % (created, skipped))
+        print("%d件を起票、%d件は既にある、%d件を閉じた" % (created, skipped, closed))
     else:
-        print("%d件が未起票、%d件は既にある（--write で起票する）" % (created, skipped))
+        print("%d件が未起票、%d件は既にある、%d件を閉じる（--write で書く）"
+              % (created, skipped, closed))
         print("`引用` と `信頼度` は決定のものを写す。新しい引用は作らない。")
     return 0
 
