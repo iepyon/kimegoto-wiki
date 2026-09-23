@@ -25,7 +25,7 @@ def _role_field(wiki, role, source_field):
 def derived_fields(wiki, type_name, role="", log="", meeting="", kind=""):
     """機械的に決まるフィールドを {名前: 値} で返す。
 
-    引けなかったものはキーごと返さない（`giji new` が雛形の空欄を残す）。
+    引けなかったものはキーごと返さない（`kime new` が雛形の空欄を残す）。
     第2の戻り値は人間に見せる注意書き。
     """
     o = wiki.ontology

@@ -8,7 +8,7 @@ description: 会議当日の確認②（25分）を進行し、制約・前提�
 共通規約は `CLAUDE.md`、根拠は `research-notes.md` が正典。以下がこのパスの判定基準。
 
 昇格（Pass 4）をこのスキルに含めているのは、**回す順番を間違えると材料が空になる**から。
-`giji promote-input` は理由がどこにも記録されていない決定を材料から落とすので、
+`kime promote-input` は理由がどこにも記録されていない決定を材料から落とすので、
 `なぜ` を書く 2-2 より前に回すと何も出ない。順番を2つのファイルに分けて持つと必ずずれる。
 
 ## 最重要の制約
@@ -20,20 +20,20 @@ description: 会議当日の確認②（25分）を進行し、制約・前提�
 
 ## 手順
 
-1. `python3 tools/giji.py review --meeting MTG-YYYYMMDD` を実行する
+1. `python3 tools/kime.py review --meeting MTG-YYYYMMDD` を実行する
 2. 出力の 2-0 → 2-3 の順に、**該当するカードだけ**を人間に提示する
 3. 各項目は `AskUserQuestion` で聞き、**返ってきた言葉をそのまま**書き込む
-4. 2-3 が終わったら `python3 tools/giji.py promote-input --meeting MTG-YYYYMMDD` を回し、
+4. 2-3 が終わったら `python3 tools/kime.py promote-input --meeting MTG-YYYYMMDD` を回し、
    下記に従って候補を挙げ、`meetings/MTG-YYYYMMDD/promote-candidates.yaml` に書き出す
 5. 2-4 で候補を yes/no で承認してもらい、**承認されたものだけ**を
    `constraints/` `assumptions/` `terms/` にカードとして作る
-6. `python3 tools/giji.py lint` で error 0 を確認する
+6. `python3 tools/kime.py lint` で error 0 を確認する
 
 順序は **2-2（なぜ）→ promote-input → 2-4（承認）**。ここを崩さない。
 
 ## 順序と時間配分
 
-時間配分と該当カードの一覧は `giji review` が出す。ここには**聞き方**だけを置く。
+時間配分と該当カードの一覧は `kime review` が出す。ここには**聞き方**だけを置く。
 
 | | 内容 | 聞き方 |
 |---|---|---|
@@ -88,7 +88,7 @@ CON の中身は「採った案の理由（`なぜ`）」ではなく「捨て�
 なので、`なぜ` だけで閉じると、逐語で却下理由が取れている制約まで落ちる。
 `却下理由: 記録なし` は記録として数えない。
 
-`giji promote-input` が該当する決定を**材料そのものから落とす**。注意書きではなく入力の
+`kime promote-input` が該当する決定を**材料そのものから落とす**。注意書きではなく入力の
 欠落で守っている。落とされた決定は材料の末尾に一覧で出るので、人間に伝える。
 
 ## 1・2 — 制約の判定
@@ -134,12 +134,12 @@ CON の中身は「採った案の理由（`なぜ`）」ではなく「捨て�
 ```
 
 **`所在` と `硬度` は書かない。** 承認後に
-`giji new constraint --from-log LOG-... --role <発言した役割> --kind <種類>` が
+`kime new constraint --from-log LOG-... --role <発言した役割> --kind <種類>` が
 role-mapping と導出表から埋める。
 
 ## 3 — 前提の検出
 
-トリガー語（「今は」「当面」「現状」「一旦」など）の走査は `giji promote-input` が
+トリガー語（「今は」「当面」「現状」「一旦」など）の走査は `kime promote-input` が
 済ませており、該当する決定が材料に一覧で出る。**自分で語を探さない。**
 出ている決定について、前提として切るかどうかだけを判断する。
 
@@ -211,11 +211,11 @@ Pass 2 の未知語リスト（`meetings/*/unknown-terms.yaml`）を既存の用
 - `失効条件` `signpost` `定義案` を推測で埋める（`不明` を使う）
 - `崩れたら見直す決定` が空の前提を候補に出す
 - 固有の事情（工数・スケジュール）を制約として昇格させる
-- `所在` `硬度` を手で書く（`giji new` が導出する）
+- `所在` `硬度` を手で書く（`kime new` が導出する）
 
 ## 四半期ごとの前提の棚卸し（年4回・5分）
 
-②とは別の運用。`python3 tools/giji.py views` の `open-items.md` が対象を抜き出す。
+②とは別の運用。`python3 tools/kime.py views` の `open-items.md` が対象を抜き出す。
 
 ```
 status: 有効 かつ 脆弱性: 高 の前提について、signpost が発火していないかだけを見る。

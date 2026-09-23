@@ -48,7 +48,7 @@ fi
 # 2. ontology.yaml / 雛形を触ったら生成物と雛形の鮮度
 if echo "$staged" | grep -qE '^(ontology\.yaml|templates/|schema\.md)'; then
     echo "pre-commit: schema.md と雛形の同期"
-    python3 tools/giji.py schema --check --check-samples --check-templates
+    python3 tools/kime.py schema --check --check-samples --check-templates
 fi
 
 # 3. lint（error で落ちる。warning は落とさない）
@@ -59,7 +59,7 @@ for project in projects/*/; do
     [ -f "$project/.fixture" ] && continue
     [ -f "$project/.wip" ] && continue
     echo "pre-commit: lint $project"
-    python3 tools/giji.py lint --root "$project"
+    python3 tools/kime.py lint --root "$project"
 done
 
 # 4. ビューの鮮度
@@ -68,7 +68,7 @@ for project in projects/*/; do
     [ -f "$project/.fixture" ] && continue
     [ -f "$project/.wip" ] && continue
     if [ -d "$project/views" ]; then
-        python3 tools/giji.py views --root "$project" --check
+        python3 tools/kime.py views --root "$project" --check
     fi
 done
 

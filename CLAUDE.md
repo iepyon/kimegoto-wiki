@@ -58,7 +58,7 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
 
 `ID = ファイル名 = frontmatter の id` を三者一致させる。採番は型ごとの最大値+1。
 **取り下げた番号は欠番のまま残し、再利用しない**（同じ ID が別のものを指すと、
-過去の議事録が嘘になる）。`giji new` が採番する。
+過去の議事録が嘘になる）。`kime new` が採番する。
 
 プロジェクト接頭辞は付けない。1案件1ディレクトリなので衝突しない。
 
@@ -88,9 +88,9 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
 4. **人間の判断を代行しない。** 昇格の承認、`なぜ` の記入、ACT の担当・期限は
    人間が決める。`AskUserQuestion` で聞き、返ってきた言葉をそのまま書く。
 5. **一意に決まるものはスキルに書かせない。道具にやらせる。**
-   導出フィールド（`種別` / `所在` / `硬度` / `担当` / `会議体`）は `giji new`、
-   範囲の問いは `giji scope-questions`、未知語の計数は `giji unknown-terms`、
-   議事録の節構成は `giji minutes-input` が出す。
+   導出フィールド（`種別` / `所在` / `硬度` / `担当` / `会議体`）は `kime new`、
+   範囲の問いは `kime scope-questions`、未知語の計数は `kime unknown-terms`、
+   議事録の節構成は `kime minutes-input` が出す。
    **機械が書き、lint は保険として残す**（逆にすると、食い違いを直すのが人間の仕事になる）。
 6. **非対話実行では、機械的に定まるものだけを反映してよい。**
    解釈を要するもの（`なぜ`、却下理由、昇格の可否、`範囲` の判定）は必ず対話で確認する。
@@ -101,19 +101,19 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
 
 ```bash
 sh tools/setup.sh [案件名]                     # 初回。門を立てて一度通す
-python3 tools/giji.py                          # サブコマンド一覧
-python3 tools/giji.py lint                     # 整合性検査（error 0 が不変条件）
-python3 tools/giji.py verify-quotes --fix      # 引用不一致を「推測」に降格
-python3 tools/giji.py scope-questions --meeting MTG-... [--write]  # 範囲の問いを定型で起票
-python3 tools/giji.py unknown-terms --meeting MTG-...              # 未知語の候補を拾う
-python3 tools/giji.py views                    # ビュー再生成
-python3 tools/giji.py agenda                   # 次回アジェンダ
-python3 tools/giji.py review --meeting MTG-...   # 確認②のチェックリスト
-python3 tools/giji.py minutes-input --meeting MTG-... [--edition customer]
-python3 tools/giji.py promote-input --meeting MTG-...
-python3 tools/giji.py new decision --title "..." --from-log LOG-... --role 顧客PM --write
-python3 tools/giji.py issue --act ACT-008 --repo owner/repo   # --create で起票
-python3 tools/giji.py schema --check --check-samples --check-templates
+python3 tools/kime.py                          # サブコマンド一覧
+python3 tools/kime.py lint                     # 整合性検査（error 0 が不変条件）
+python3 tools/kime.py verify-quotes --fix      # 引用不一致を「推測」に降格
+python3 tools/kime.py scope-questions --meeting MTG-... [--write]  # 範囲の問いを定型で起票
+python3 tools/kime.py unknown-terms --meeting MTG-...              # 未知語の候補を拾う
+python3 tools/kime.py views                    # ビュー再生成
+python3 tools/kime.py agenda                   # 次回アジェンダ
+python3 tools/kime.py review --meeting MTG-...   # 確認②のチェックリスト
+python3 tools/kime.py minutes-input --meeting MTG-... [--edition customer]
+python3 tools/kime.py promote-input --meeting MTG-...
+python3 tools/kime.py new decision --title "..." --from-log LOG-... --role 顧客PM --write
+python3 tools/kime.py issue --act ACT-008 --repo owner/repo   # --create で起票
+python3 tools/kime.py schema --check --check-samples --check-templates
 python3 -m unittest discover -s tests
 ```
 

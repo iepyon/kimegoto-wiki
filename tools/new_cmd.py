@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`giji new` — 雛形から新しいカードを起こす。
+"""`kime new` — 雛形から新しいカードを起こす。
 
 採番は最大値+1。取り下げた番号は欠番のまま残し、再利用しない
 （同じ ID が別のものを指すと、過去の議事録が嘘になる）。
@@ -75,7 +75,7 @@ def new_card(wiki, type_name, meeting=None, title=None, index=None,
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="giji new", description="雛形から新しいカードを起こす")
+    ap = argparse.ArgumentParser(prog="kime new", description="雛形から新しいカードを起こす")
     ap.add_argument("type", help="decision | question | action | constraint | assumption | term | log")
     ap.add_argument("--meeting", default=None, help="会議 ID（--from-log があれば不要）")
     ap.add_argument("--title", default=None, help="見出し")

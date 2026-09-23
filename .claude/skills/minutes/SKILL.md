@@ -22,7 +22,7 @@ description: カードから議事録や次回アジェンダをレンダリン�
 
 ### 手順
 
-1. `python3 tools/giji.py minutes-input --meeting MTG-YYYYMMDD [--edition customer]`
+1. `python3 tools/kime.py minutes-input --meeting MTG-YYYYMMDD [--edition customer]`
 2. **材料の末尾に出る「議事録の骨格」の見出しを、その順で使って書く**
 3. 会話の中に出す
 
@@ -74,7 +74,7 @@ description: カードから議事録や次回アジェンダをレンダリン�
 
 みなし確定は、相手方が確認していない記録が「自己に都合の良いことしか書かれていない」
 メモとして扱われるのを防ぐための定型。異議なく確定したら、その日を各 DEC の `確定日` に
-書き戻す（`giji confirm --meeting MTG-... --sent YYYY-MM-DD`）
+書き戻す（`kime confirm --meeting MTG-... --sent YYYY-MM-DD`）
 — これが25分の運用に足す唯一の追加作業。
 
 ---
@@ -83,7 +83,7 @@ description: カードから議事録や次回アジェンダをレンダリン�
 
 ### 手順
 
-1. `python3 tools/giji.py agenda` を実行する
+1. `python3 tools/kime.py agenda` を実行する
 2. 会議で読み上げられる形に整えて提示する
 
 ### 順序を変えない

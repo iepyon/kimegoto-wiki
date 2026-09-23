@@ -14,10 +14,10 @@ python3 verify_quotes.py --root projects/example        # 再実行しても二�
 他のコマンドも同じく `--root` で指定する。
 
 ```
-python3 tools/giji.py lint --root projects/example
-python3 tools/giji.py views --root projects/example
-python3 tools/giji.py review --root projects/example --meeting MTG-20260918
-python3 tools/giji.py minutes-input --root projects/example --edition customer
+python3 tools/kime.py lint --root projects/example
+python3 tools/kime.py views --root projects/example
+python3 tools/kime.py review --root projects/example --meeting MTG-20260918
+python3 tools/kime.py minutes-input --root projects/example --edition customer
 ```
 
 ## この案件は lint の error を1件出す

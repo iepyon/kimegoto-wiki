@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""導出フィールドの適用（`tools/derive.py` と `giji new`）。
+"""導出フィールドの適用（`tools/derive.py` と `kime new`）。
 
 見ているのは「機械が書く」側。これまで LLM が書いて lint が事後照合していた
 写像が、ここで一意に決まることを確かめる。同時に、**埋めてはいけないものを

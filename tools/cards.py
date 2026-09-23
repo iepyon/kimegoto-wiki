@@ -455,7 +455,7 @@ def _scalar(value):
 def dump_frontmatter(data, order=None):
     """dict を frontmatter の本体（`---` は含まない）にする。
 
-    `giji new` の雛形出力に使う。既存カードの書き換えには使わない
+    `kime new` の雛形出力に使う。既存カードの書き換えには使わない
     （コメントと空欄の順序が失われるため。書き換えは行単位で行う）。
     """
     lines = []

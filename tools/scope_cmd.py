@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`giji scope-questions` — `範囲: 判定保留` の決定に対する定型の問いを起票する。
+"""`kime scope-questions` — `範囲: 判定保留` の決定に対する定型の問いを起票する。
 
 受託開発では、決定が当初の合意範囲に入っていたかどうかが後の追加請求の根拠になる。
 発話に明示が無ければ `範囲` は `判定保留` のまま残し、**顧客に聞く問いだけ**を Q に
@@ -108,7 +108,7 @@ def plan(wiki, meeting_id=None):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="giji scope-questions",
+        prog="kime scope-questions",
         description="`範囲: 判定保留` の決定に対する定型の問いを起票する")
     ap.add_argument("--meeting", default=None, help="会議 ID（既定: 全件）")
     ap.add_argument("--write", action="store_true", help="カードを作る（既定は下書きの表示）")

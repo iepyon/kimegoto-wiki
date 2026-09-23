@@ -9,7 +9,7 @@ description: アクションから GitHub Issue の下書きを作る。「Issue
 
 ## 手順
 
-1. `python3 tools/giji.py issue --act ACT-NNN` で本文を出す（**この時点では起票しない**）
+1. `python3 tools/kime.py issue --act ACT-NNN` で本文を出す（**この時点では起票しない**）
 2. 本文を人間に見せる
 3. 起票してよいか、どのリポジトリに出すかを確認する
 4. 承認を得てから `--repo owner/repo --create` を付けて実行する

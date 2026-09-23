@@ -7,4 +7,4 @@ lint の error を必ず1件出す。それが正しい状態である。
 このファイルがあるディレクトリは、pre-commit と Stop フックの自動チェックから
 外れる。明示的に指定したときだけ検査される:
 
-    python3 tools/giji.py lint --root projects/example
+    python3 tools/kime.py lint --root projects/example

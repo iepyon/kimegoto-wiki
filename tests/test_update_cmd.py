@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`giji update` / `giji confirm`。
+"""`kime update` / `kime confirm`。
 
 会議をまたぐ更新が手編集だけだと、回数が増えるほどドリフトする。
 frontmatter を行単位で書き換え、キーの順序と空欄を壊さないことを見る。

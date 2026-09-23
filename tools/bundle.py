@@ -117,7 +117,7 @@ class Bundle:
                    and meeting_id not in self.wiki.meetings_of(c)]
 
         out = ["# 議事録の材料 — %s（%s版）" % (meeting_id, "顧客提出" if customer else "社内"), ""]
-        out.append("この束は `giji minutes-input` が機械的に集めたもの。"
+        out.append("この束は `kime minutes-input` が機械的に集めたもの。"
                    "**ここに無いことを書かない。空欄は空欄として扱う。**")
         out.append("")
         out.append("- 会議: %s（%s）" % (meeting_id, meeting.date))
@@ -442,7 +442,7 @@ class Bundle:
                           "前回アクションの status もこの場で更新する。", rows)
 
         out += self._step("2-4", "昇格候補の承認", "6分",
-                          "`giji promote-input` の材料から Pass 4 を回し、"
+                          "`kime promote-input` の材料から Pass 4 を回し、"
                           "出てきた候補を yes/no で承認する。"
                           "前提は `脆弱性: 高` のものだけ。迷ったら昇格させない。", [])
 
@@ -472,7 +472,7 @@ class Bundle:
 # ------------------------------------------------------------ CLI
 
 def _run(argv, kind):
-    ap = argparse.ArgumentParser(prog="giji %s" % kind)
+    ap = argparse.ArgumentParser(prog="kime %s" % kind)
     ap.add_argument("--meeting", default=None, help="会議 ID（既定: 最新）")
     ap.add_argument("--root", default=None, help="案件ディレクトリ")
     ap.add_argument("--today", default=None)

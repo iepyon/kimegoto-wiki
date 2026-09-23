@@ -11,7 +11,7 @@
 
 **検出と書き戻しを分ける。**
   - 検出（`check`）は lint が呼ぶ。ファイルを一切書き換えない。
-  - 書き戻し（`fix_card`）は `giji verify-quotes --fix` だけが呼ぶ。行単位で
+  - 書き戻し（`fix_card`）は `kime verify-quotes --fix` だけが呼ぶ。行単位で
     置き換え、frontmatter のコメントと空欄の順序を壊さない。
 """
 

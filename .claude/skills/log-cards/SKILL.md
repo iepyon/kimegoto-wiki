@@ -14,10 +14,10 @@ description: 論点ごとに LOG カードを生成する（Pass 2）。「LOG �
 
 1. `meetings/MTG-YYYYMMDD/segments.yaml` と `transcript.md` を読む
 2. `terms/*.md` の `正式` と `表記揺れ` を全部読む（正規化に使う）
-3. `python3 tools/giji.py new log --meeting MTG-YYYYMMDD` で ID を採番する
+3. `python3 tools/kime.py new log --meeting MTG-YYYYMMDD` で ID を採番する
 4. `meetings/MTG-YYYYMMDD/logs/LOG-YYYYMMDD-NN.md` に書き出す
-5. `python3 tools/giji.py lint --check log-format` で形式を確認する
-6. `python3 tools/giji.py unknown-terms --meeting MTG-YYYYMMDD` を回し、
+5. `python3 tools/kime.py lint --check log-format` で形式を確認する
+6. `python3 tools/kime.py unknown-terms --meeting MTG-YYYYMMDD` を回し、
    出てきた候補から未知語リストを作る（下記）
 
 ## 最重要ルール — 削ってよいが、言い換えは禁止
@@ -82,7 +82,7 @@ title: 認証方式の選定
 
 ## 未知語の検出
 
-**候補拾いは機械がやる。** `giji unknown-terms` が、用語集に無い / 規定の回数以上
+**候補拾いは機械がやる。** `kime unknown-terms` が、用語集に無い / 規定の回数以上
 出現する / カタカナ・英字・漢字列のいずれか、の3条件を満たす語を出現回数つきで出す。
 **自分で数えない**（回数はいちばん間違えるところで、間違えると閾値の判定ごと狂う）。
 

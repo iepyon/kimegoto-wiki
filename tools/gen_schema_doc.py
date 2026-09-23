@@ -174,7 +174,7 @@ def check_templates(ontology):
 # ------------------------------------------------------------ CLI
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="giji schema",
+    ap = argparse.ArgumentParser(prog="kime schema",
                                  description="ontology.yaml と schema.md / 雛形の同期")
     ap.add_argument("--render", action="store_true", help="schema.md の生成ブロックを書き換える")
     ap.add_argument("--check", action="store_true", help="生成ブロックが最新かを見る")

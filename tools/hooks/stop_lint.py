@@ -27,7 +27,7 @@ def main():
         pass
 
     try:
-        from tools import gijilint, schema
+        from tools import kimelint, schema
         from tools.cards import Wiki
 
         projects = os.path.join(KIT_ROOT, "projects")
@@ -44,8 +44,8 @@ def main():
             wiki = Wiki(root, ontology)
             if not wiki.cards or wiki.is_fixture:
                 continue
-            errors.extend((slug, p) for p in gijilint.run(wiki)
-                          if p.level == gijilint.ERROR)
+            errors.extend((slug, p) for p in kimelint.run(wiki)
+                          if p.level == kimelint.ERROR)
     except Exception:          # noqa: BLE001
         return 0
 
@@ -58,8 +58,8 @@ def main():
               file=sys.stderr)
     if len(errors) > LIMIT:
         print("  … 他 %d件" % (len(errors) - LIMIT), file=sys.stderr)
-    print("\n`python3 tools/giji.py lint` で全件を確認できます。"
-          "引用の不一致なら `python3 tools/giji.py verify-quotes --fix` で"
+    print("\n`python3 tools/kime.py lint` で全件を確認できます。"
+          "引用の不一致なら `python3 tools/kime.py verify-quotes --fix` で"
           "信頼度を推測に降格できます。", file=sys.stderr)
     return 2
 

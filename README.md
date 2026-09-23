@@ -1,8 +1,10 @@
-# minutes-from-cards — 議事録抽出キット
+# kimegoto — 決め事を記録するキット
 
 会議の文字起こしから、**決定事項（DEC）・未決事項（Q）・アクション（ACT）** をカードとして
 抜き出し、そのカードから議事録と次回アジェンダを作る。
 **カードが唯一の真実で、議事録はその射影。**
+
+名前は「決め事（きめごと）」から。CLI は `kime`（`python3 tools/kime.py`）。
 
 対象: 1チーム・1プロジェクト。2週に1回の定例会議。
 人間の作業: 会議当日の確認 25分。
@@ -66,7 +68,7 @@ sh tools/setup.sh <案件名>
 > 「次回のアジェンダを出して」「持ち越しを確認したい」
 
 ```sh
-python3 tools/giji.py agenda
+python3 tools/kime.py agenda
 ```
 
 これまでのカードから議題案を組み立てる。demo-kb だと次のように出る。
@@ -152,9 +154,9 @@ segments:
 - カードには LOG からの逐語引用を付ける。抽出のあとに照合する
 
 ```sh
-python3 tools/giji.py scope-questions --meeting MTG-20260925 --write  # 範囲の問いを定型で起票
-python3 tools/giji.py verify-quotes --fix   # 引用を LOG と照合し、不一致は「推測」に降格
-python3 tools/giji.py lint                  # error 0 を確認
+python3 tools/kime.py scope-questions --meeting MTG-20260925 --write  # 範囲の問いを定型で起票
+python3 tools/kime.py verify-quotes --fix   # 引用を LOG と照合し、不一致は「推測」に降格
+python3 tools/kime.py lint                  # error 0 を確認
 ```
 
 同じ DEC / Q / ACT が複数の会議に出てくるのは正常。新しいカードを作らず、既存のカードを更新する。
@@ -184,7 +186,7 @@ ACT-014「図面PDF対応の追加見積を提示する」
 | 2-4 | 制約・前提・用語への昇格候補を yes/no で承認（Pass 4） | 6分 |
 
 ```sh
-python3 tools/giji.py review --meeting MTG-20260925   # 該当するカードだけを上の順で並べる
+python3 tools/kime.py review --meeting MTG-20260925   # 該当するカードだけを上の順で並べる
 ```
 
 `なぜ` を書かずに済ませてもよい。ただしその DEC は次回アジェンダの冒頭に載り続け、
@@ -200,41 +202,41 @@ python3 tools/giji.py review --meeting MTG-20260925   # 該当するカードだ
 > 「MTG-20260925 の議事録を出して」「顧客提出版がほしい」
 
 ```sh
-python3 tools/giji.py minutes-input --meeting MTG-20260925                       # 社内版の材料
-python3 tools/giji.py minutes-input --meeting MTG-20260925 --edition customer    # 顧客提出版の材料
+python3 tools/kime.py minutes-input --meeting MTG-20260925                       # 社内版の材料
+python3 tools/kime.py minutes-input --meeting MTG-20260925 --edition customer    # 顧客提出版の材料
 ```
 
 - 議事録はカードから作る生成物で、**ファイルには保存しない**。直すならカードを直して出し直す
 - 顧客提出版で出せない情報は CLI が機械的に落とす（`ontology.yaml` の `editions.customer`）
 
 ACT を GitHub Issue にしたいときは「ACT-014 を Issue にして」
-（`giji issue --act ACT-014 --repo owner/repo`、`--create` で起票。起票の前に必ず確認する）。
+（`kime issue --act ACT-014 --repo owner/repo`、`--create` で起票。起票の前に必ず確認する）。
 
 ---
 
 ## コマンド早見表
 
-`giji` は `python3 tools/giji.py`。対象の案件は `.env` の `CURRENT_PROJECT`、または `--root` で指定する。
+`kime` は `python3 tools/kime.py`。対象の案件は `.env` の `CURRENT_PROJECT`、または `--root` で指定する。
 
 | コマンド | 使う場面 |
 |---|---|
-| `giji agenda` | ① 次回アジェンダ |
-| `giji unknown-terms --meeting MTG-...` | ② 未知語の候補を拾う |
-| `giji new decision --title "..." --from-log LOG-... --role 顧客PM --write` | ③ カードを起こす（採番つき） |
-| `giji update <ID> --set k=v` | ③④ 既存カードを書き換える |
-| `giji scope-questions --meeting MTG-... --write` | ③ 範囲の問いを起票 |
-| `giji verify-quotes --fix` | ③ 引用の照合と降格 |
-| `giji review --meeting MTG-...` | ④ 確認のチェックリスト |
-| `giji promote-input --meeting MTG-...` | ④ 昇格候補の材料 |
-| `giji minutes-input --meeting MTG-... [--edition customer]` | ⑤ 議事録の材料 |
-| `giji confirm --meeting MTG-... --sent YYYY-MM-DD` | ⑤ みなし確定の期限を書き戻す |
-| `giji issue --act ACT-NNN --repo owner/repo` | ⑤ Issue の下書き |
-| `giji lint` | いつでも。error 0 が不変条件 |
-| `giji views` | ビューの再生成（通常は Stop フックが行う） |
-| `giji schema --check --check-samples --check-templates` | 設定層を変えたとき |
+| `kime agenda` | ① 次回アジェンダ |
+| `kime unknown-terms --meeting MTG-...` | ② 未知語の候補を拾う |
+| `kime new decision --title "..." --from-log LOG-... --role 顧客PM --write` | ③ カードを起こす（採番つき） |
+| `kime update <ID> --set k=v` | ③④ 既存カードを書き換える |
+| `kime scope-questions --meeting MTG-... --write` | ③ 範囲の問いを起票 |
+| `kime verify-quotes --fix` | ③ 引用の照合と降格 |
+| `kime review --meeting MTG-...` | ④ 確認のチェックリスト |
+| `kime promote-input --meeting MTG-...` | ④ 昇格候補の材料 |
+| `kime minutes-input --meeting MTG-... [--edition customer]` | ⑤ 議事録の材料 |
+| `kime confirm --meeting MTG-... --sent YYYY-MM-DD` | ⑤ みなし確定の期限を書き戻す |
+| `kime issue --act ACT-NNN --repo owner/repo` | ⑤ Issue の下書き |
+| `kime lint` | いつでも。error 0 が不変条件 |
+| `kime views` | ビューの再生成（通常は Stop フックが行う） |
+| `kime schema --check --check-samples --check-templates` | 設定層を変えたとき |
 | `python3 -m unittest discover -s tests` | 道具を変えたとき |
 
-各サブコマンドの詳細は `giji <サブコマンド> --help`。
+各サブコマンドの詳細は `kime <サブコマンド> --help`。
 
 ---
 

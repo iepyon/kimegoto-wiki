@@ -6,17 +6,17 @@ description: カードの整合性を点検する。「lint して」「整合�
 # 整合性の点検
 
 共通規約は `CLAUDE.md` が正典。チェック項目の正本は `ontology.yaml` と
-`tools/gijilint.py`。以下は本スキル固有の手順。
+`tools/kimelint.py`。以下は本スキル固有の手順。
 
 ## 役割分担
 
-`gijilint.py` が機械的に担う部分は、**スクリプトの出力をそのまま報告に転記する。**
+`kimelint.py` が機械的に担う部分は、**スクリプトの出力をそのまま報告に転記する。**
 そこを読み直して再点検しない（時間の無駄であり、機械のほうが正確）。
 あなたは残りの**意味的なチェック**に集中する。
 
 ## 手順
 
-1. `python3 tools/giji.py lint` を実行し、出力をそのまま転記する
+1. `python3 tools/kime.py lint` を実行し、出力をそのまま転記する
 2. 以下の意味的チェックを行う
 3. 所見をまとめる。**カードは書き換えない**（検出役に徹する）
 
@@ -41,5 +41,5 @@ description: カードの整合性を点検する。「lint して」「整合�
 
 ## 引用不一致を見つけたら
 
-`python3 tools/giji.py verify-quotes --fix` を提案する。
+`python3 tools/kime.py verify-quotes --fix` を提案する。
 自分で LOG のほうを直さない（LOG は不変層）。
