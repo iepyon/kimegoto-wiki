@@ -6,14 +6,18 @@
 
 `--from-log` と `--role` を渡すと、**role-mapping と会議メタから一意に定まる
 フィールドをここで埋める**（`決定の所在` / `種別` / `会議体` / `担当` / `所在` /
-`硬度` / `derived_from` / 日付）。これまで LLM が書いて lint が事後照合していた
+`硬度` / `derived_from` / 日付、論点に付いた `議題`）。これまで LLM が書いて lint が事後照合していた
 部分で、写像としては一意に決まる。解釈の要るフィールド（`なぜ`・却下理由・
 `範囲`）は雛形の空欄のまま残す。
+
+`kime new agenda --title ... --role 顧客PM --meeting MTG-...` は議題（AGD）を起こす。
+`提起者` / `提起日` / `予定会議` を埋める。会議はまだ無くてよい。
 
 既定は標準出力。--write を付けたときだけファイルを作る。
 """
 
 import argparse
+import datetime
 import sys
 
 from tools import schema
@@ -22,15 +26,15 @@ from tools.derive import derived_fields
 from tools.update_cmd import UpdateError, apply_updates
 
 # 型 -> 雛形ファイル名
-TEMPLATE = {"DEC": "dec", "Q": "q", "ACT": "act", "CON": "con",
+TEMPLATE = {"AGD": "agd", "DEC": "dec", "Q": "q", "ACT": "act", "CON": "con",
             "ASM": "asm", "TERM": "term", "LOG": "log"}
 
-ALIAS = {"decision": "DEC", "question": "Q", "action": "ACT", "constraint": "CON",
+ALIAS = {"agenda": "AGD", "decision": "DEC", "question": "Q", "action": "ACT", "constraint": "CON",
          "assumption": "ASM", "term": "TERM", "log": "LOG"}
 
 
 def new_card(wiki, type_name, meeting=None, title=None, index=None,
-             role="", log="", kind=""):
+             role="", log="", kind="", today=""):
     """(カード ID, テキスト, 置き場のパス, 注意書き) を返す。ファイルは作らない。"""
     o = wiki.ontology
     path = schema.KIT_ROOT / "templates" / "card" / ("%s.md" % TEMPLATE[type_name])
@@ -54,7 +58,8 @@ def new_card(wiki, type_name, meeting=None, title=None, index=None,
     if title:
         headline = o.headline_field(type_name)
         placeholder = {
-            "title": {"DEC": "決定の内容を一文で", "Q": "何が決まっていないか",
+            "title": {"AGD": "決めたいこと（提起者の言葉のまま）",
+                      "DEC": "決定の内容を一文で", "Q": "何が決まっていないか",
                       "ACT": "誰が何をするか", "LOG": "論点の見出し"},
             "内容": {"CON": "選択肢を削る環境の性質", "ASM": "成り立っていればよい仮定"},
             "正式": {"TERM": "正式表記"},
@@ -64,7 +69,7 @@ def new_card(wiki, type_name, meeting=None, title=None, index=None,
                                 "%s: %s" % (headline, title))
 
     fields, notes = derived_fields(wiki, type_name, role=role, log=log,
-                                   meeting=meeting or "", kind=kind)
+                                   meeting=meeting or "", kind=kind, today=today)
     for name, value in fields.items():
         try:
             text = apply_updates(text, sets=[(name, value)])
@@ -76,7 +81,8 @@ def new_card(wiki, type_name, meeting=None, title=None, index=None,
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="kime new", description="雛形から新しいカードを起こす")
-    ap.add_argument("type", help="decision | question | action | constraint | assumption | term | log")
+    ap.add_argument("type", help="agenda | decision | question | action | constraint | "
+                                 "assumption | term | log")
     ap.add_argument("--meeting", default=None, help="会議 ID（--from-log があれば不要）")
     ap.add_argument("--title", default=None, help="見出し")
     ap.add_argument("--from-log", dest="from_log", default=None,
@@ -85,6 +91,8 @@ def main(argv=None):
                     help="結論を述べた役割ラベル。role-mapping から導出フィールドを埋める")
     ap.add_argument("--kind", default=None,
                     help="CON の `種類`（property | expectation）。`硬度` を導出する")
+    ap.add_argument("--today", default=None,
+                    help="AGD の `提起日`（YYYY-MM-DD。既定は今日）")
     ap.add_argument("--write", action="store_true", help="ファイルを作る（既定は標準出力）")
     ap.add_argument("--root", default=None)
     args = ap.parse_args(argv)
@@ -109,10 +117,11 @@ def main(argv=None):
         latest = wiki.latest_meeting()
         meeting = latest.id if latest else None
 
+    today = args.today or datetime.date.today().isoformat()
     try:
         card_id, text, target, notes = new_card(
             wiki, type_name, meeting, args.title,
-            role=args.role or "", log=log_id, kind=args.kind or "")
+            role=args.role or "", log=log_id, kind=args.kind or "", today=today)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 2

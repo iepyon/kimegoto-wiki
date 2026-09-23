@@ -21,7 +21,7 @@ import argparse
 import datetime
 import sys
 
-from tools import schema
+from tools import agenda, schema
 from tools.cards import Wiki, resolve_root
 
 EMPTY = "（なし）"
@@ -169,18 +169,20 @@ class Bundle:
         out.extend(self._footer(edition, customer))
         return "\n".join(out).rstrip() + "\n"
 
-    def _render_card(self, card, edition, customer):
+    def _render_card(self, card, edition, customer, level=3, skip=()):
         out = []
         title = self.head(card)
-        out.append("### %s" % (title if customer else "%s %s" % (card.id, title)))
+        out.append("%s %s" % ("#" * level, title if customer else "%s %s" % (card.id, title)))
         out.append("")
         for name, value in self._fields(card, edition):
-            if name in ("title", "内容", "正式", "代替案"):
+            if name in ("title", "内容", "正式", "代替案") or name in skip:
                 continue
             if value in ("", [], None):
                 continue
-            if customer and name in ("決定の所在", "確認先", "担当"):
+            if customer and name in ("決定の所在", "確認先", "担当", "提起者"):
                 value = self.company_of(value)
+            if name == "議題" and self.wiki.get(value) is not None:
+                value = "%s %s" % (value, self.head(self.wiki.get(value)))
             if isinstance(value, list):
                 value = " / ".join(str(v) for v in value if not isinstance(v, dict))
                 if not value:
@@ -246,6 +248,107 @@ class Bundle:
         else:
             out.append("社内版はすべて出す。リーダのレビュー後、"
                        "必要なら `--edition customer` で顧客提出版を作る。")
+        return out
+
+    # ------------------------------------------------ 次回アジェンダの材料
+
+    def agenda_input(self, meeting_id=None):
+        """次回アジェンダの材料。議事録と同じく、カードの射影。
+
+        何を載せるかは `tools/agenda.py`（ビューと同じ選定）、節の順は
+        `ontology.yaml` の `agenda.sections`。対象会議はまだ無くてよい
+        （会議の前に作るものなので）。省略すると「次回」として、閉じていない
+        議題を全部載せる。
+        """
+        label = meeting_id or "次回"
+        out = ["# 次回アジェンダの材料 — %s" % label, ""]
+        out.append("この束は `kime agenda-input` が機械的に集めたもの。"
+                   "**ここに無いことを書かない。議題の文言を言い換えない。**")
+        out.append("")
+        latest = self.wiki.latest_meeting()
+        out.append("- 前回: %s" % (latest.id if latest else "（記録なし）"))
+        body = (self.wiki.meta or {}).get("会議体", "")
+        if body:
+            out.append("- 会議体: %s" % body)
+        out.append("")
+
+        sections = agenda.select(self.wiki, meeting_id)
+        for section in sections:
+            out.append("## %s" % section.title)
+            out.append("")
+            if section.key == "agenda-items":
+                out.extend(self._agenda_items(section.items))
+                continue
+            if not section.cards:
+                out.append(EMPTY)
+                out.append("")
+                continue
+            if section.key == "why-missing":
+                # 確認するのは「理由を言えるか」だけ。決定の中身は見出しで足りる。
+                for c in section.cards:
+                    out.append("- %s %s（%s・%s）" % (c.id, self.head(c), c.get("決定の所在") or "—",
+                                                   c.get("決定日") or "—"))
+                out.append("")
+                continue
+            for card in section.cards:
+                out.extend(self._render_card(card, "internal", False))
+
+        out.append("---")
+        out.append("")
+        out.append("## アジェンダの骨格（この見出しを、この順で使う）")
+        out.append("")
+        for i, (_, title, note) in enumerate(self.o.agenda_sections()):
+            out.append("%d. **%s**%s" % (i, title, " — %s" % note if note else ""))
+        out.append("")
+        out.append("議題を足すときは `kime new agenda --title \"…\" --role 役割 "
+                   "--meeting %s --write`。文言は提起者の言葉のまま。"
+                   % (meeting_id or "MTG-YYYYMMDD"))
+        return "\n".join(out).rstrip() + "\n"
+
+    def _agenda_items(self, items):
+        """議題ごとに、ぶら下がるカードを並べる。
+
+        未完了のアクションは冒頭の節で全文を出すので、ここでは ID と見出しだけ。
+        """
+        if not items:
+            return [EMPTY, ""]
+        out = []
+        for item in items:
+            card = item.card
+            out.append("### %s %s" % (card.id, self.head(card)))
+            out.append("")
+            out.append("- 提起者: %s（%s）" % (card.get("提起者") or "—", card.get("提起日") or "—"))
+            carry = ""
+            if item.carried:
+                carry = "（持ち越し：%s）" % item.history if item.history else "（持ち越し）"
+            out.append("- 状態: %s%s" % (card.get("status") or "—", carry))
+            out.append("- 予定会議: %s" % (" / ".join(card.list("予定会議")) or "（次回）"))
+            out.append("")
+            out.append("#### これまでの決定")
+            out.append("")
+            if item.decisions:
+                for c in item.decisions:
+                    out.append("- %s %s（%s・%s）" % (c.id, self.head(c), c.get("決定日") or "—",
+                                                   c.get("決定の所在") or "—"))
+                out.append("")
+            else:
+                out += [EMPTY, ""]
+            out.append("#### 未決の問い")
+            out.append("")
+            if item.questions:
+                for c in item.questions:
+                    # 親の議題は見出しで分かっているので繰り返さない。
+                    out.extend(self._render_card(c, "internal", False, level=5, skip=("議題",)))
+            else:
+                out += [EMPTY, ""]
+            out.append("#### 未完了のアクション")
+            out.append("")
+            if item.actions:
+                for c in item.actions:
+                    out.append("- %s %s" % (c.id, self.head(c)))
+                out.append("")
+            else:
+                out += [EMPTY, ""]
         return out
 
     # ------------------------------------------------ Pass 4 の入力
@@ -446,6 +549,25 @@ class Bundle:
                           "出てきた候補を yes/no で承認する。"
                           "前提は `脆弱性: 高` のものだけ。迷ったら昇格させない。", [])
 
+        items = [item for item in agenda.agenda_items(self.wiki, meeting_id)
+                 if meeting_id in item.card.list("予定会議")
+                 or meeting_id in self.wiki.discussed_in(item.card)
+                 or any(x in current for x in self.wiki.children_of(item.card))]
+        rows = [["ID", "議題", "この会議で", "今回の決定", "未決の問い", "目安"]]
+        rows += [[item.card.id, self.head(item.card),
+                  "扱った" if meeting_id in self.wiki.discussed_in(item.card) else "扱えず",
+                  " / ".join(x.id for x in item.decisions if x in current),
+                  " / ".join(x.id for x in item.questions),
+                  agenda.closing_hint(item)]
+                 for item in items]
+        out += self._step("2-5", "議題の締め", "2分",
+                          "この会議の議題が決着したかを人間が判定する。`目安` は候補を示すだけ"
+                          "（未決の問いが残っていれば決着にしない）。"
+                          "決着なら `kime update AGD-NNN --set status=決着`。"
+                          "結論が出なかった議題は何もしない — 開いたまま次回へ持ち越される。"
+                          "何が足りずに決まらなかったかが発言に出ていれば、それは Pass 3 が Q にしている。",
+                          rows)
+
         out.append("---")
         out.append("")
         out.append("この確認を飛ばすと、捏造された Wiki ができる。"
@@ -473,7 +595,8 @@ class Bundle:
 
 def _run(argv, kind):
     ap = argparse.ArgumentParser(prog="kime %s" % kind)
-    ap.add_argument("--meeting", default=None, help="会議 ID（既定: 最新）")
+    ap.add_argument("--meeting", default=None,
+                    help="会議 ID（既定: 最新。agenda-input では次回の会議で、未作成でよい）")
     ap.add_argument("--root", default=None, help="案件ディレクトリ")
     ap.add_argument("--today", default=None)
     if kind == "minutes-input":
@@ -483,6 +606,9 @@ def _run(argv, kind):
     wiki = Wiki(resolve_root(args.root), schema.load())
     today = datetime.date.fromisoformat(args.today) if args.today else None
     meeting_id = args.meeting
+    if kind == "agenda-input":
+        print(Bundle(wiki, today).agenda_input(meeting_id), end="")
+        return 0
     if not meeting_id:
         latest = wiki.latest_meeting()
         if latest is None:
@@ -507,6 +633,10 @@ def _run(argv, kind):
         print(exc, file=sys.stderr)
         return 2
     return 0
+
+
+def main_agenda(argv=None):
+    return _run(argv or [], "agenda-input")
 
 
 def main_minutes(argv=None):

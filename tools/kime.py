@@ -15,7 +15,9 @@ if __package__ in (None, ""):
 
 # サブコマンド名 -> (モジュール, 一行説明)
 COMMANDS = {
-    "agenda": ("tools.agenda_cmd", "次回アジェンダを出す"),
+    "agenda": ("tools.agenda_cmd", "次回アジェンダ（ビュー）を出す"),
+    "agenda-input": ("tools.agenda_input_cmd", "次回アジェンダをレンダリングするための材料を組み立てる"),
+    "agenda-sync": ("tools.agenda_sync_cmd", "論点に付いた議題を議題カードの status と予定会議に書き戻す"),
     "issue": ("tools.issues", "ACT から GitHub Issue の下書きを作る"),
     "lint": ("tools.kimelint", "カードの整合性を機械的に検査する"),
     "minutes-input": ("tools.minutes_cmd", "議事録をレンダリングするための材料を組み立てる"),

@@ -20,6 +20,7 @@ meetings/MTG-YYYYMMDD/
     unknown-terms.yaml         # Pass 2 の出力（未知語リスト）
     extraction-notes.yaml      # Pass 3 の欠落ガードの理由
     promote-candidates.yaml    # Pass 4 の出力（承認後は破棄可）
+agenda/                            # 議題（DEC / Q / ACT の親）
 decisions/ questions/ actions/     # フロー層
 constraints/ assumptions/ terms/   # ストック層（昇格承認を経たものだけ）
 views/                             # 生成物

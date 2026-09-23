@@ -16,9 +16,13 @@ description: 会議の文字起こしを論点単位に切り出す（Pass 1）�
 1. 対象の会議を決める。無ければ `projects/<slug>/meetings/MTG-YYYYMMDD/` を作り、
    `transcript.md` を置いてもらう
 2. `role-mapping.yaml` を読む（役割ラベルの表記を合わせるため）
-3. `meetings/MTG-YYYYMMDD/segments.yaml` に書き出す
-4. `python3 tools/kime.py lint --check segment-format,segment-count,segment-role` で形式を確認する
-5. **人間に粒度の確認を求めて、そこで止まる**
+3. `python3 tools/kime.py agenda-input --meeting MTG-YYYYMMDD` の「議題」節で、
+   この会議に載っていた議題（AGD）の ID と文言を見る
+4. `meetings/MTG-YYYYMMDD/segments.yaml` に書き出す
+5. `python3 tools/kime.py lint --check segment-format,segment-count,segment-role` で形式を確認する
+6. **人間に粒度の確認を求めて、そこで止まる**
+7. 確認が通ったら `python3 tools/kime.py agenda-sync --meeting MTG-YYYYMMDD --write` を回す
+   （扱った議題の `status` と `予定会議` を機械が書き戻す。自分でカードを直さない）
 
 ## 形式は機械が見る
 
@@ -62,6 +66,17 @@ seq の連番・`種別` の語彙・`時刻` の書式・見出しの長さ・�
 - ○ 「認証方式の選定」「データ移行のスケジュール」
 - ✗ 「認証について」「いろいろな話」「その他」
 
+## 議題の付け方
+
+論点が手順3の議題のどれかについての議論なら、その論点に `議題: AGD-NNN` を付ける。
+Pass 3 で起こす DEC / Q / ACT の `議題` は、ここから `kime new --from-log` が写す。
+**論点と議題の対応がいちばんよく分かるのはこの時点**なので、ここで付ける。
+
+- 議題の文言と論点の問いが同じものを指しているときだけ付ける。迷ったら付けない（空欄が正常）
+- 1論点に付ける議題は1つ。2つにまたがるなら論点の切り方を疑う
+- 載っていない話題が会議の場で議題として出たなら、自分で AGD を作らない。
+  人間の確認（下）で「議題として起票するか」を聞く
+
 ## 出力形式
 
 YAML のみ。前後に説明文を書かない。
@@ -80,6 +95,7 @@ segments:
     種別: 議論
     時刻: "00:06:40 - 00:21:10"
     参加役割: [顧客PM, 開発リーダ]
+    議題: AGD-004              # 載っていた議題についての論点なら。無ければ書かない
 ```
 
 `role-mapping.yaml` に無い役割ラベルは、`参加役割` にそのまま記載する。
@@ -103,5 +119,9 @@ segments:
    指示を受けたら再生成する
 2. **種別** — `議論` が `報告` に誤分類されていないか（逆方向の誤りは害が小さい）
 3. **未登録の役割** — あれば `role-mapping.yaml` に追記する
+4. **議題** — 付け方が合っているか。載っていなかった議題が会議の場で出ていたら、
+   起票するかを聞き、起票するなら文言と提起者を聞いて
+   `kime new agenda --title "…" --role 役割 --meeting MTG-YYYYMMDD --write` を実行し、
+   その論点に `議題` を付け直す
 
 ここを通してから Pass 2 に進む。飛ばすと後戻りが高くつく。

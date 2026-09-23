@@ -19,7 +19,7 @@ import datetime
 import re
 import sys
 
-from tools import schema
+from tools import agenda, schema
 from tools.cards import Wiki, resolve_root
 
 HEADER = ("<!-- 生成物: gen_views.py %s による機械生成。手編集禁止。"
@@ -103,21 +103,16 @@ def _section(title, body, note=None):
 # ------------------------------------------------------------ 個別の束
 
 def _why_missing(ctx):
-    """`なぜ` 未記入の決定。書かないことに付けたコストの実体。"""
-    rows = []
-    for c in sorted(ctx.of("DEC"), key=lambda c: c.id):
-        if c.get("なぜ") or c.get("status") == "覆された":
-            continue
-        rows.append([c.id, ctx.head(c), c.get("決定の所在"), c.get("決定日"), ctx.meetings_label(c)])
+    """`なぜ` 未記入の決定。書かないことに付けたコスト。"""
+    rows = [[c.id, ctx.head(c), c.get("決定の所在"), c.get("決定日"), ctx.meetings_label(c)]
+            for c in agenda.why_missing(ctx.wiki)]
     return _table(["ID", "決定", "決定の所在", "決定日", "会議"], rows), len(rows)
 
 
-def _open_questions(ctx):
+def _open_questions(ctx, cards=None):
     """未決の問い。確認先ごとに束ねる（誰に聞けばよいかが引けるように）。"""
     by_owner = {}
-    for c in ctx.of("Q"):
-        if c.get("status") != "未決":
-            continue
+    for c in (agenda.open_questions(ctx.wiki) if cards is None else cards):
         by_owner.setdefault(c.get("確認先") or "（確認先なし）", []).append(c)
     if not by_owner:
         return EMPTY, 0
@@ -136,9 +131,7 @@ def _open_questions(ctx):
 def _open_actions(ctx):
     """未完了のアクション。担当社ごとに束ね、期限の早い順に並べる。"""
     by_owner = {}
-    for c in ctx.of("ACT"):
-        if c.get("status") in ("完了", "取り下げ"):
-            continue
+    for c in agenda.open_actions(ctx.wiki):
         by_owner.setdefault(c.get("担当") or "（担当なし）", []).append(c)
     if not by_owner:
         return EMPTY, 0
@@ -158,15 +151,31 @@ def _open_actions(ctx):
 def _fragile_assumptions(ctx):
     """棚卸しの対象になる前提だけ。全件は追跡しない（2週25分では破綻する）。"""
     rows = []
-    for c in sorted(ctx.of("ASM"), key=lambda c: c.id):
-        if c.get("status") != "有効" or c.get("脆弱性") != "高":
-            continue
-        if not c.list("崩れたら見直す決定"):
-            continue
+    for c in agenda.fragile_assumptions(ctx.wiki):
         due = "**期限超過**" if ctx.overdue(c, "次回確認日") else c.get("次回確認日")
         rows.append([c.id, ctx.head(c), c.get("signpost"),
                      " / ".join(c.list("崩れたら見直す決定")), due])
     return _table(["ID", "前提", "signpost", "崩れたら見直す決定", "次回確認日"], rows), len(rows)
+
+
+def _agenda_items(ctx, items):
+    """議題ごとの小表。議題の行に、ぶら下がる決定・未決・アクションの ID を添える。"""
+    rows = []
+    for item in items:
+        c = item.card
+        rows.append([c.id, ctx.head(c), c.get("提起者"),
+                     item.label,
+                     " / ".join(c.list("予定会議")) or "（次回）",
+                     " / ".join(d.id for d in item.decisions),
+                     " / ".join(q.id for q in item.questions),
+                     " / ".join(a.id for a in item.actions)])
+    return _table(["ID", "議題", "提起者", "状態", "予定会議", "決定", "未決", "アクション"],
+                  rows), len(rows)
+
+
+def _open_agenda(ctx):
+    """閉じていない議題（会議を問わず）。"""
+    return _agenda_items(ctx, agenda.agenda_items(ctx.wiki))
 
 
 def _pending_scope(ctx):
@@ -205,12 +214,14 @@ def view_open_items(ctx):
     pending, n_pending = _pending_scope(ctx)
     guessed, n_guess = _guessed(ctx)
     unconfirmed, n_unconf = _unconfirmed(ctx)
+    topics, n_topics = _open_agenda(ctx)
 
     out = [_header("open-items", ctx), "", "# 開いているもの", "",
            "会議をまたいで「まだ閉じていないもの」を集めたビュー。"
            "カードから毎回生成する。", "",
            _table(["区分", "件数"],
                   [["`なぜ` 未記入の決定", n_why],
+                   ["閉じていない議題", n_topics],
                    ["未決の問い", n_q],
                    ["未完了のアクション", n_act],
                    ["棚卸し対象の前提", n_asm],
@@ -224,6 +235,8 @@ def view_open_items(ctx):
     out.append(_section("`なぜ` が未記入の決定", why,
                         "次回アジェンダの冒頭に掲示される。"
                         "未記入のあいだ、この決定は制約・前提へ昇格できない。"))
+    out.append(_section("閉じていない議題", topics,
+                        "`決着` / `取り下げ` になるまで次回のアジェンダに残る。"))
     out.append(_section("未決の問い", questions))
     out.append(_section("未完了のアクション", actions,
                         "status の更新は定例会議でのみ行う"
@@ -239,12 +252,11 @@ def view_open_items(ctx):
 
 
 def view_agenda_next(ctx):
-    """次回アジェンダ — 「引く動機」を作るためのビュー。"""
-    why, n_why = _why_missing(ctx)
-    questions, n_q = _open_questions(ctx)
-    actions, n_act = _open_actions(ctx)
-    assumptions, n_asm = _fragile_assumptions(ctx)
+    """次回アジェンダ — 「引く動機」を作るためのビュー。
 
+    何を載せるかは `tools/agenda.py`、節の順は `ontology.yaml` の `agenda.sections`。
+    `kime agenda-input` と同じ選定を使う。
+    """
     latest = ctx.wiki.latest_meeting()
     out = [_header("agenda-next", ctx), "", "# 次回アジェンダ（案）", ""]
     out.append("前回: %s" % (latest.id if latest else "（記録なし）"))
@@ -253,16 +265,22 @@ def view_agenda_next(ctx):
                "このアジェンダが読まれない記録は死んでいる。")
     out.append("")
 
-    out.append(_section("0. `なぜ` が未記入の決定（冒頭で確認）", why,
-                        "書かないことに付けたコスト。ここが埋まるまで"
-                        "制約・前提への昇格ができない。"))
-    out.append(_section("1. 前回からの未完了アクション", actions))
-    out.append(_section("2. 未決の問い", questions))
-    out.append(_section("3. 前提の棚卸し（四半期に1回・5分）", assumptions,
-                        "signpost に照らして「崩れたか」だけを見る。"))
+    counts = []
+    for i, section in enumerate(agenda.select(ctx.wiki)):
+        if section.key == "why-missing":
+            body, n = _why_missing(ctx)
+        elif section.key == "open-actions":
+            body, n = _open_actions(ctx)
+        elif section.key == "agenda-items":
+            body, n = _agenda_items(ctx, section.items)
+        elif section.key == "loose-questions":
+            body, n = _open_questions(ctx, section.cards)
+        else:
+            body, n = _fragile_assumptions(ctx)
+        counts.append((section.title, n))
+        out.append(_section("%d. %s" % (i, section.title), body, section.note or None))
     out.append("---\n")
-    out.append("所要の目安: 決定の理由 %d件 / アクション %d件 / 問い %d件 / 前提 %d件"
-               % (n_why, n_act, n_q, n_asm))
+    out.append("所要の目安: " + " / ".join("%s %d件" % (title, n) for title, n in counts))
     return "\n".join(out).rstrip() + "\n"
 
 

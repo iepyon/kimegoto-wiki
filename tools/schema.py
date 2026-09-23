@@ -41,6 +41,7 @@ class Ontology:
         self.deferral_phrases = data.get("deferral-phrases", [])
         self.assumption_trigger_words = data.get("assumption-trigger-words", [])
         self.scope_question = data.get("scope-question", {})
+        self.agenda = data.get("agenda", {})
         self._id_res = {t: re.compile(spec["id"]) for t, spec in self.types.items()}
         self._meeting_re = re.compile(self.meetings.get("id", "^MTG-"))
 
@@ -204,6 +205,18 @@ class Ontology:
             elif row:
                 out.append((str(row), ""))
         return out
+
+    def agenda_sections(self):
+        """次回アジェンダの節構成。[(キー, 見出し, 注記), ...]。"""
+        return [(row.get("key", ""), row.get("title", ""), row.get("note", ""))
+                for row in self.agenda.get("sections", []) if isinstance(row, dict)]
+
+    def agenda_closed_status(self):
+        """議題を閉じた（アジェンダに載せない）status。"""
+        return list(self.agenda.get("closed-status", []))
+
+    def is_meeting_id(self, value):
+        return bool(value) and bool(self._meeting_re.match(value))
 
     def edition(self, name):
         try:
