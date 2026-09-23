@@ -131,9 +131,10 @@ README を確認した結果、**YAML フロントマターもトレーサビリ
 
 | 場所 | 内容 |
 |---|---|
-| `.claude/skills/` | 4パス・確認②・議事録・アジェンダ・Issue・lint の9スキル |
+| `.claude/skills/` | 4パス・確認②（昇格を含む）・議事録／アジェンダ・Issue・lint の7スキル |
 | `.claude/settings.json` | 不変層のガード（PreToolUse）、ビュー再生成と lint（Stop） |
-| `.githooks/pre-commit` | テスト・生成物の鮮度・lint・不変層の5段 |
+| `.githooks/pre-commit` | テスト・生成物の鮮度・lint・不変層の5段。**`sh tools/setup.sh` を実行するまで立たない** |
+| `.github/workflows/checks.yml` | CI。同じ `pre-commit` を `--all` で呼ぶだけ（門の中身を2箇所に書かない） |
 
 案件ディレクトリに `.fixture` を置くと教材として自動検査から外れ、`.wip` を置くと
 **作りかけ**として外れる。案件を作っている途中は error が出て当たり前なので、
@@ -142,6 +143,21 @@ README を確認した結果、**YAML フロントマターもトレーサビリ
 ---
 
 ## 初回セットアップ（30分）
+
+0. **門を立てる**
+
+   ```
+   sh tools/setup.sh
+   ```
+
+   `git config core.hooksPath .githooks` を実行し、その場で一度すべての検査を通す。
+   **これを飛ばすと `.githooks/pre-commit` は動かない。** clone しただけでは
+   git はこのディレクトリを見に行かないため、「門がある」と思ったまま門の無い
+   状態で作業することになる。
+
+   `--no-verify` での迂回は塞げないので、同じ門を CI
+   （`.github/workflows/checks.yml`）がもう一度通す。迂回したこと自体は
+   止められないが、後から気づけるようにしてある。
 
 1. **`decision-guide.md` を読んで、チームで境界例をすり合わせる**
    - Ahmeti ほか (ECSA 2024) のアクションリサーチで、最大の障害は記述コストではなく
@@ -158,7 +174,7 @@ README を確認した結果、**YAML フロントマターもトレーサビリ
 
    ```
    cp -r templates/project projects/<案件名>
-   echo "CURRENT_PROJECT=<案件名>" > .env
+   sh tools/setup.sh <案件名>          # .env に書き、門を通す
    ```
 
    `role-mapping.yaml` は案件ディレクトリの中に置く。

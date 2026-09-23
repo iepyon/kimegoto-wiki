@@ -100,6 +100,7 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
 ## コマンド
 
 ```bash
+sh tools/setup.sh [案件名]                     # 初回。門を立てて一度通す
 python3 tools/giji.py                          # サブコマンド一覧
 python3 tools/giji.py lint                     # 整合性検査（error 0 が不変条件）
 python3 tools/giji.py verify-quotes --fix      # 引用不一致を「推測」に降格

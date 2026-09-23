@@ -16,6 +16,7 @@ lint に依存させない。ビュー生成が lint を import すると、チ�
 
 import argparse
 import datetime
+import re
 import sys
 
 from tools import schema
@@ -24,11 +25,35 @@ from tools.cards import Wiki, resolve_root
 HEADER = ("<!-- 生成物: gen_views.py %s による機械生成。手編集禁止。"
           "生成基準日: %s / ontology-version: %s -->")
 
+# 既存のビューから生成基準日を読み戻すための正規表現。
+GENERATED_ON = re.compile(r"生成基準日:\s*(\d{4}-\d{2}-\d{2})")
+
 EMPTY = "（なし）"
 
 
 def _header(name, ctx):
     return HEADER % (name, ctx.today.isoformat(), ctx.o.version)
+
+
+def _generated_on(text):
+    """そのビューが「いつを基準に」作られたか。読めなければ None。
+
+    `--check` は**その日を基準に作り直して**比べる。今日の日付で作り直すと、
+    期限超過の件数もヘッダの日付も日々変わるので、コミットしていないのに
+    毎日「古い」と言い出す（CI では恒久的に落ちる）。
+
+    ここで見たい不変条件は「カードと突き合わせて中身が合っているか」であって
+    「今日時点で最新か」ではない。基準日を揃えれば、時間で揺れなくなる。
+    """
+    if not text:
+        return None
+    m = GENERATED_ON.search(text)
+    if not m:
+        return None
+    try:
+        return datetime.date.fromisoformat(m.group(1))
+    except ValueError:
+        return None
 
 
 class Ctx:
@@ -333,17 +358,26 @@ def render(wiki, name, today=None):
 
 
 def generate(wiki, only=None, today=None, check=False):
-    """ビューを書き出す。check なら書かずに差分の有無だけを返す。"""
-    ctx = Ctx(wiki, today)
+    """ビューを書き出す。check なら書かずに差分の有無だけを返す。
+
+    `--check` は、`--today` を明示されない限り**各ビューの生成基準日**を基準に
+    作り直して比べる（`_generated_on` を見る）。書き出すときは今日を使う。
+    """
     names = [only] if only else list(VIEWS)
     stale, written = [], []
     directory = wiki.views_dir
     if not check:
         directory.mkdir(parents=True, exist_ok=True)
+    default_ctx = Ctx(wiki, today)
     for name in names:
-        text = VIEWS[name](ctx)
         path = directory / ("%s.md" % name)
         current = path.read_text(encoding="utf-8") if path.exists() else None
+        ctx = default_ctx
+        if check and today is None:
+            recorded = _generated_on(current)
+            if recorded is not None:
+                ctx = Ctx(wiki, recorded)
+        text = VIEWS[name](ctx)
         if current == text:
             continue
         if check:

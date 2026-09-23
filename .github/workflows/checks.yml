@@ -1,0 +1,39 @@
+# 規約の門を、ローカルの外でもう一度通す。
+#
+# `.githooks/pre-commit` は `--no-verify` で迂回できるし、そもそも
+# `git config core.hooksPath .githooks` を実行していない人には立っていない。
+# **迂回されたことに後から気づく手段**として CI を置く。
+#
+# 門の中身はここに書かない。`.githooks/pre-commit` を呼ぶだけにする
+# （2箇所に書くと、片方だけ直されて静かにずれる）。
+#
+# 外部依存は無い（標準ライブラリ縛り）。Python を入れるだけで動く。
+
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 不変層の検査に base との差分が要る。
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 規約の門（テスト / schema の同期 / lint / ビューの鮮度）
+        run: sh .githooks/pre-commit --all
+
+      - name: 不変層が書き換えられていないか
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          sh .githooks/pre-commit --against "origin/${{ github.base_ref }}"
