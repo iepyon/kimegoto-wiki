@@ -265,7 +265,7 @@ class Wiki:
         """
         out = {}
         for meeting in self.meetings.values():
-            path = meeting.dir / "extraction-notes.yaml"
+            path = meeting.dir / self.ontology.meetings.get("extraction-notes-file", "extraction-notes.yaml")
             if not path.is_file():
                 continue
             try:
@@ -289,7 +289,7 @@ class Wiki:
         """
         out = {}
         for meeting_id, meeting in self.meetings.items():
-            path = meeting.dir / "segments.yaml"
+            path = meeting.dir / self.ontology.meetings.get("segments-file", "segments.yaml")
             if not path.is_file():
                 continue
             raw = path.read_text(encoding="utf-8")
@@ -346,6 +346,20 @@ class Wiki:
                     if meeting_id not in found:
                         found.append(meeting_id)
         return out
+
+    def constraints_of(self, decision):
+        """その決定に効く制約（CON の `影響する決定` から逆引き）。DEC 側には書かない。"""
+        return self._stock_pointing_at(decision, "CON", "影響する決定")
+
+    def assumptions_of(self, decision):
+        """その決定が寄りかかる前提（ASM の `崩れたら見直す決定` から逆引き）。"""
+        return self._stock_pointing_at(decision, "ASM", "崩れたら見直す決定")
+
+    def _stock_pointing_at(self, decision, type_name, field):
+        decision_id = decision.id if isinstance(decision, Card) else decision
+        return sorted((c for c in self.by_type(type_name)
+                       if c.error is None and decision_id in c.list(field)),
+                      key=lambda c: c.id)
 
     def discussed_in(self, agenda):
         """その議題を実際に扱った会議（古い順）。論点に `議題` が付いた会議。

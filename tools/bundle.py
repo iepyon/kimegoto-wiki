@@ -21,7 +21,7 @@ import argparse
 import datetime
 import sys
 
-from tools import agenda, schema
+from tools import agenda, schema, scope_cmd
 from tools.cards import Wiki, resolve_root
 
 EMPTY = "（なし）"
@@ -164,6 +164,8 @@ class Bundle:
             if title == "前回アクションの結果":
                 # 骨格（ontology.yaml の editions.<版>.sections）と同じ順に置く。
                 out.extend(self._agenda_section(meeting_id, current, edition, customer))
+            if title == "未決事項":
+                out.extend(self._scope_section(meeting_id, edition, customer))
 
         out.append("## 前回からの繰越アクション")
         out.append("")
@@ -187,6 +189,23 @@ class Bundle:
 
         out.extend(self._footer(edition, customer))
         return "\n".join(out).rstrip() + "\n"
+
+    def _scope_section(self, meeting_id, edition, customer):
+        """範囲の確認 — `範囲: 判定保留` の決定を、顧客に聞く問いとして出す。
+
+        Q カードは無い（`tools/scope_cmd.py`）。この会議で生成・更新された決定のうち
+        まだ聞いていないものを、未決事項の末尾に同じ写像で並べる。
+        """
+        rows = [(c, title, to) for c, title, to in scope_cmd.plan(self.wiki, meeting_id)
+                if not (customer and self._excluded(c, edition))]
+        out = ["### 範囲の確認（当初の合意に入っていたか）", ""]
+        if not rows:
+            return out + [EMPTY, ""]
+        for c, title, to in rows:
+            who = (self.company_of(to) if customer else to) or "—"
+            out.append("- %s（確認先: %s）" % (title if customer else "%s %s" % (c.id, title), who))
+        out.append("")
+        return out
 
     def _born_by(self, card, meeting_id):
         """その会議までに起票されていたか。後の会議で生えたカードを過去の議事録に混ぜない。"""
@@ -222,7 +241,10 @@ class Bundle:
                 out.append("- 提起者: %s" % (self.company_of(raiser) if customer else raiser))
             out.append("- この会議で: %s" % ("扱った" if discussed else "扱えず"))
             # カードはいまの状態しか持たない。過去の会議の材料では後の決着も映る。
-            out.append("- いまの状態: %s" % (card.get("status") or "—"))
+            state = card.get("status") or "—"
+            if card.get("決着日"):
+                state += "（%s）" % card.get("決着日")
+            out.append("- いまの状態: %s" % state)
             groups = [("決定", [c for c in children if c.type == "DEC"]),
                       ("未決の問い", [c for c in self.wiki.children_of(card)
                                      if c.type == "Q" and c.get("status") == "未決"
@@ -260,6 +282,13 @@ class Bundle:
                 if not value:
                     continue
             out.append("- %s: %s" % (name, value))
+        if card.type == "DEC" and not customer:
+            # DEC 側には書かない（片方向リンク）。ストック側から逆引きして見せる。
+            for label, cards in (("制約", self.wiki.constraints_of(card)),
+                                 ("前提", self.wiki.assumptions_of(card))):
+                if cards:
+                    out.append("- %s: %s" % (label, " / ".join(
+                        "%s %s" % (c.id, self.head(c)) for c in cards)))
         alternatives = self._alternatives(card, edition) if card.type == "DEC" else []
         if alternatives:
             out.append("- 代替案:")
@@ -353,6 +382,12 @@ class Bundle:
                 continue
             if not section.cards:
                 out.append(EMPTY)
+                out.append("")
+                continue
+            if section.key == "scope-pending":
+                # 決定の `範囲: 判定保留` の射影。Q カードは無い（`tools/scope_cmd.py`）。
+                for c, title, to in scope_cmd.plan(self.wiki):
+                    out.append("- %s %s（確認先: %s・%s）" % (c.id, title, to or "—", c.get("決定日") or "—"))
                 out.append("")
                 continue
             if section.key == "why-missing":
@@ -594,7 +629,9 @@ class Bundle:
         def of(type_name):
             return sorted([c for c in current if c.type == type_name], key=lambda c: c.id)
 
-        pending = [c for c in of("DEC") if c.get("範囲") == "判定保留"]
+        want = scope_cmd.pending_scope(self.wiki)
+        pending = [c for c in of("DEC") if c.get("範囲") == want]
+        askable = {c.id: to for c, _, to in scope_cmd.plan(self.wiki, meeting_id)}
         guessed = [c for c in current if c.get("信頼度") == "推測"]
         no_why = [c for c in of("DEC") if not c.get("なぜ")]
         no_reason = [(c, row) for c in of("DEC") for row in c.structs("代替案")
@@ -610,10 +647,11 @@ class Bundle:
         out += self._step("2-0", "`範囲: 判定保留` の決定", "3分",
                           "受託開発では最優先。他を飛ばしてもここは見る。"
                           "無理に判定すると追加請求の根拠を失う。"
-                          "判定を書いたら `kime scope-questions --meeting %s --write` で"
-                          "範囲の問いを閉じる。" % meeting_id,
-                          [["ID", "決定", "種別", "決定日"]] +
-                          [[c.id, self.head(c), c.get("種別"), c.get("決定日")] for c in pending])
+                          "判定は `kime update DEC-NNN --set 範囲=…` に書く。Q は立てない"
+                          "（`判定保留` のあいだ、アジェンダと議事録に「範囲の確認」として出る）。",
+                          [["ID", "決定", "種別", "確認先", "決定日"]] +
+                          [[c.id, self.head(c), c.get("種別"), askable.get(c.id, "—"), c.get("決定日")]
+                           for c in pending])
 
         out += self._step("2-1", "`信頼度: 推測` のカード", "4分",
                           "引用が照合できなかったか、沈黙を根拠にした判定。"
@@ -665,7 +703,7 @@ class Bundle:
         out += self._step("2-5", "議題の締め", "2分",
                           "この会議の議題が決着したかを人間が判定する。`目安` は候補を示すだけ"
                           "（未決の問いが残っていれば決着にしない）。"
-                          "決着なら `kime update AGD-NNN --set status=決着`。"
+                          "決着なら `kime update AGD-NNN --set status=決着 --set 決着日=%s`。" % self.wiki.meetings[meeting_id].date +
                           "結論が出なかった議題は何もしない — 開いたまま次回へ持ち越される。"
                           "何が足りずに決まらなかったかが発言に出ていれば、それは Pass 3 が Q にしている。",
                           rows)

@@ -11,6 +11,8 @@
 lint に依存させない（gen_views と同じ理由）。
 """
 
+from tools import scope_cmd
+
 
 class Item:
     """アジェンダに載る議題1件と、その下にぶら下がるカード。"""
@@ -133,6 +135,7 @@ def select(wiki, meeting_id=None):
     """`ontology.agenda.sections` の順に Section を返す。"""
     builders = {
         "why-missing": lambda: {"cards": why_missing(wiki)},
+        "scope-pending": lambda: {"cards": scope_cmd.pending_decisions(wiki)},
         "open-actions": lambda: {"cards": open_actions(wiki)},
         "agenda-items": lambda: {"items": agenda_items(wiki, meeting_id)},
         "loose-questions": lambda: {"cards": loose_questions(wiki, meeting_id)},
