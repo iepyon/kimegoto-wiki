@@ -320,6 +320,63 @@ class Wiki:
                 found.append(meeting)
         return sorted(found)
 
+    # ------------------------------------------------------------ 議題
+
+    def children_of(self, agenda, *types):
+        """その議題を `議題` で指しているカード（ID 順）。
+
+        親（AGD）は子の一覧を持たない。子が親を1つ指し、ここで逆引きする
+        （`meetings_of` と同じ流儀。両方向に書くと食い違う）。
+        """
+        agenda_id = agenda.id if isinstance(agenda, Card) else agenda
+        pool = self.by_type(*(types or ("DEC", "Q", "ACT")))
+        return sorted((c for c in pool if c.error is None and c.get("議題") == agenda_id),
+                      key=lambda c: (c.type, c.id))
+
+    def agenda_of(self, meeting_id=None):
+        """その会議のアジェンダに載る議題（AGD）。[(カード, 持ち越しか), ...]。
+
+        閉じていない議題のうち、
+          - `予定会議` に対象会議を含む
+          - `予定会議` がすべて対象会議より前（前回までに扱い、決着していない ＝ 持ち越し）
+          - `予定会議` が空（次回に扱う）
+        のどれか。`meeting_id` が None なら「次回」とみなし、閉じていない議題を全部出す。
+        対象会議はまだディレクトリが無くてよい（会議の前に作るものなので）。
+        """
+        closed = set(self.ontology.agenda_closed_status())
+        out = []
+        for card in sorted(self.by_type("AGD"), key=lambda c: c.id):
+            if card.error is not None or card.get("status") in closed:
+                continue
+            planned = sorted(m for m in card.list("予定会議") if m)
+            if meeting_id is None:
+                carried = bool(planned) and all(m in self.meetings for m in planned)
+                out.append((card, carried))
+            elif meeting_id in planned:
+                out.append((card, any(m < meeting_id for m in planned)))
+            elif not planned:
+                out.append((card, False))
+            elif all(m < meeting_id for m in planned):
+                out.append((card, True))
+        return out
+
+    def segment_agenda(self, log_id):
+        """LOG に対応する論点（segments.yaml の同じ seq）に付いた `議題`。無ければ ""。
+
+        Pass 1 が論点に議題を付け、`kime new --from-log` がそれを子カードへ写す。
+        """
+        log = self.get(log_id)
+        if log is None or log.type != "LOG":
+            return ""
+        entry = self.segments.get(log.get("meeting"))
+        if not entry or entry[0] is None:
+            return ""
+        seq = self.ontology.id_number(log.id)
+        for row in (entry[0] or {}).get("segments") or []:
+            if isinstance(row, dict) and str(row.get("seq") or "") == str(seq):
+                return (row.get("議題") or "").strip() if isinstance(row.get("議題"), str) else ""
+        return ""
+
     def cards_of_meeting(self, meeting_id, *types):
         """その会議で生成または更新されたカード。
 

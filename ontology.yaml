@@ -11,7 +11,7 @@
 version: 1
 
 # ------------------------------------------------------------
-# 7種のカード
+# 8種のカード
 #   layer  : flow  = 会議ごとに生成 / stock = 昇格承認を経て育つ
 #   dir    : 置き場ディレクトリ（LOG のみ meetings/MTG-*/logs/ 配下）
 #   label  : 生成物やメッセージで使う日本語名
@@ -28,6 +28,18 @@ types:
     nested-under: meetings
     id: "^LOG-\\d{8}-\\d{2}$"
     type-value: log
+    headline: title
+    has-quote: false
+
+  # 議題。会議をまたいで続く「決めたいこと」の単位で、DEC / Q / ACT の親。
+  # 子が `議題` で親を指し、親は子の一覧を持たない（逆引きで得る。二重管理しない）。
+  # 文字起こしより先に（会議の前や冒頭に）起票されるので、引用を持たない。
+  AGD:
+    label: 議題
+    layer: flow
+    dir: agenda
+    id: "^AGD-\\d{3}$"
+    type-value: agenda
     headline: title
     has-quote: false
 
@@ -104,6 +116,7 @@ enums:
   DEC状態: [決定, 保留, 覆された]
   Q状態: [未決, 解決, 取り下げ]
   ACT状態: [未着手, 進行中, 完了, 遅延, 取り下げ]
+  AGD状態: [未着手, 継続, 決着, 取り下げ]
   ストック状態: [有効, 失効]
   ASM状態: [有効, 崩れた, 確認中]
   決定種別: [交渉可能, 技術判断, 契約制約]
@@ -136,6 +149,15 @@ fields:
     時刻:    { kind: time-range, required: false, 記入主体: 自動 }
     参加役割: { kind: str-list, required: true, 記入主体: 自動 }
 
+  AGD:
+    id:       { kind: id, required: true, 記入主体: 自動 }
+    type:     { kind: text, required: true, 記入主体: 自動 }
+    title:    { kind: text, required: true, 記入主体: 人間 }
+    status:   { kind: enum, enum: AGD状態, required: true, 記入主体: 人間 }
+    提起者:   { kind: text, required: true, 記入主体: 人間 }
+    提起日:   { kind: date, required: true, 記入主体: 導出 }
+    予定会議: { kind: str-list, required: false, 記入主体: 人間 }
+
   DEC:
     id:         { kind: id, required: true, 記入主体: 自動 }
     type:       { kind: text, required: true, 記入主体: 自動 }
@@ -149,6 +171,7 @@ fields:
     信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動 }
     derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動 }
     範囲:       { kind: enum, enum: 範囲, required: true, 記入主体: 自動 }
+    議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出 }
     確定日:     { kind: date, required: false, 記入主体: 人間 }
     なぜ:       { kind: text, required: false, 記入主体: 人間 }
     受容した不利: { kind: text, required: false, 記入主体: 人間 }
@@ -172,6 +195,7 @@ fields:
     信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動 }
     derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動 }
     resolved_by: { kind: ref, ref: DEC, required: false, 記入主体: 自動 }
+    議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出 }
 
   ACT:
     id:         { kind: id, required: true, 記入主体: 自動 }
@@ -187,6 +211,7 @@ fields:
     関連:       { kind: ref-list, ref: any, required: false, 記入主体: 自動 }
     更新履歴:   { kind: struct-list, struct: 更新履歴, required: false, 記入主体: 人間 }
     issue:      { kind: text, required: false, 記入主体: 導出 }
+    議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出 }
 
   CON:
     id:         { kind: id, required: true, 記入主体: 自動 }
@@ -259,6 +284,7 @@ relations:
   初出:               { domain: [TERM], range: [LOG] }
   意味が確定した決定: { domain: [TERM], range: [DEC] }
   meeting:            { domain: [LOG], range: [MTG] }
+  議題:               { domain: [DEC, Q, ACT], range: [AGD] }
 
 # ------------------------------------------------------------
 # 導出される関係
@@ -388,6 +414,8 @@ editions:
       - issue
       - 対立当事者
       - 対策種別
+      - 議題
+      - 予定会議
       - 承認
       - 最終確認
       - 次回確認日
@@ -406,6 +434,25 @@ editions:
       - { title: 決定事項, note: "`### タイトル`（ID なし）。決定内容と合意した理由、「本件で検討し、採用しなかった方式」の表（案／採用しなかった理由）" }
       - { title: 確認事項, note: "内容・確認先・期限" }
       - { title: アクション, note: "内容・担当・期限" }
+
+# ------------------------------------------------------------
+# 次回アジェンダ
+#   節構成の正本。`kime agenda-input` が骨格として出し、`views/agenda-next.md`
+#   も同じ順で並べる。**冒頭は `なぜ` 未記入の決定**（書かないことに付けたコスト）。
+#
+#   載せる議題（AGD）は機械で決まる: status が closed-status でなく、かつ
+#   `予定会議` に対象会議を含む / `予定会議` がすべて対象会議より前（持ち越し）/
+#   `予定会議` が空（次回）。決着するまで次回へ自動で残る。
+# ------------------------------------------------------------
+
+agenda:
+  closed-status: [決着, 取り下げ]
+  sections:
+    - { key: why-missing, title: "`なぜ` が未記入の決定（冒頭で確認）", note: "書かないことに付けたコスト。埋まるまで制約・前提へ昇格できない" }
+    - { key: open-actions, title: 前回からの未完了アクション, note: "担当・期限・状態" }
+    - { key: agenda-items, title: 議題, note: "議題ごとに `### タイトル`。提起者・持ち越しか・これまでの決定・未決の問い・未完了のアクション。議題の文言を言い換えない" }
+    - { key: loose-questions, title: 議題に紐づかない未決の問い, note: "確認先ごと" }
+    - { key: assumptions, title: 前提の棚卸し（四半期に1回・5分）, note: "signpost に照らして「崩れたか」だけを見る" }
 
 # ------------------------------------------------------------
 # 閾値

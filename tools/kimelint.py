@@ -377,6 +377,12 @@ def check_segment_format(ctx):
             if time and not TIME_RANGE.match(time):
                 out.append(_p(check_segment_format, where,
                               "`時刻` が `HH:MM:SS - HH:MM:SS` の形でない: %s" % time))
+            topic = row.get("議題") or ""
+            if topic:
+                card = ctx.wiki.get(topic) if isinstance(topic, str) else None
+                if card is None or card.type != "AGD":
+                    out.append(_p(check_segment_format, where,
+                                  "`議題` が実在する議題（AGD）を指していない: %s" % topic))
     return out
 
 
@@ -550,7 +556,7 @@ def check_role_mapping(ctx):
 @check("role-unknown", WARNING)
 def check_role_unknown(ctx):
     """role-mapping.yaml に無い役割。②の確認で追記する。"""
-    out, fields = [], {"DEC": ["決定の所在"], "Q": ["確認先"]}
+    out, fields = [], {"DEC": ["決定の所在"], "Q": ["確認先"], "AGD": ["提起者"]}
     for c in ctx.sound:
         names = []
         for field in fields.get(c.type, []):
@@ -907,6 +913,44 @@ def check_issue_orphan(ctx):
                "status が `%s` だが `issue` が残っている: %s" % (c.get("status"), c.get("issue")))
             for c in ctx.of_type("ACT")
             if c.get("issue") and c.get("status") in ("完了", "取り下げ")]
+
+
+# ============================================================ 議題
+
+@check("agd-meeting-id", ERROR)
+def check_agd_meeting_id(ctx):
+    """`予定会議` が会議 ID の形でない。
+
+    未来の会議はまだディレクトリが無いので、実在は見ない。形だけを見る
+    （形が崩れていると、どの会議のアジェンダにも載らず黙って消える）。
+    """
+    out = []
+    for c in ctx.of_type("AGD"):
+        for value in c.list("予定会議"):
+            if not ctx.o.is_meeting_id(str(value)):
+                out.append(_p(check_agd_meeting_id, c.id,
+                              "`予定会議` が会議 ID の形でない: %s" % value))
+    return out
+
+
+@check("agd-closed-open", WARNING)
+def check_agd_closed_open(ctx):
+    """`決着` の議題の下に、未決の問いか未完了のアクションが残っている。
+
+    決着にすると次回のアジェンダから外れる。残った子は「議題に紐づかない」節に
+    落ちるので消えはしないが、何の話の続きかが見えなくなる。
+    """
+    out = []
+    for c in ctx.of_type("AGD"):
+        if c.get("status") != "決着":
+            continue
+        rest = [x.id for x in ctx.wiki.children_of(c)
+                if (x.type == "Q" and x.get("status") == "未決")
+                or (x.type == "ACT" and x.get("status") not in ("完了", "取り下げ"))]
+        if rest:
+            out.append(_p(check_agd_closed_open, c.id,
+                          "`決着` だが、下に閉じていないカードが残っている: %s" % " / ".join(rest)))
+    return out
 
 
 # ============================================================ 実行

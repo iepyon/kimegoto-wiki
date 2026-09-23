@@ -22,7 +22,7 @@ def _role_field(wiki, role, source_field):
     return (wiki.role(role) or {}).get(source_field, "") or ""
 
 
-def derived_fields(wiki, type_name, role="", log="", meeting="", kind=""):
+def derived_fields(wiki, type_name, role="", log="", meeting="", kind="", today=""):
     """機械的に決まるフィールドを {名前: 値} で返す。
 
     引けなかったものはキーごと返さない（`kime new` が雛形の空欄を残す）。
@@ -39,10 +39,26 @@ def derived_fields(wiki, type_name, role="", log="", meeting="", kind=""):
 
     if log:
         fields["derived_from"] = "[%s]" % log
+        # 論点に付いた議題を子カードへ写す。Pass 1 が付けたものだけで、推測はしない。
+        agenda = wiki.segment_agenda(log) if type_name in ("DEC", "Q", "ACT") else ""
+        if agenda:
+            if wiki.get(agenda) is not None and wiki.get(agenda).type == "AGD":
+                fields["議題"] = agenda
+            else:
+                notes.append("segments.yaml の議題 `%s` が無い。`議題` は空欄にした" % agenda)
     if type_name == "LOG" and meeting:
         fields["meeting"] = meeting
 
-    if type_name == "DEC":
+    if type_name == "AGD":
+        # 会議の前に起票されるので、会議の実在を見ない（予定会議は未来でよい）。
+        if role:
+            fields["提起者"] = role
+        if today:
+            fields["提起日"] = today
+        if meeting:
+            fields["予定会議"] = "[%s]" % meeting
+
+    elif type_name == "DEC":
         if role:
             fields["決定の所在"] = role
         if date:

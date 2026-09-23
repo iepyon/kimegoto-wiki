@@ -16,8 +16,14 @@ class OntologyIntegrityTest(unittest.TestCase):
     def setUpClass(cls):
         cls.o = schema.load()
 
-    def test_七種そろっている(self):
-        self.assertEqual(set(self.o.type_names()), {"LOG", "DEC", "Q", "ACT", "CON", "ASM", "TERM"})
+    def test_八種そろっている(self):
+        self.assertEqual(set(self.o.type_names()),
+                         {"LOG", "AGD", "DEC", "Q", "ACT", "CON", "ASM", "TERM"})
+
+    def test_アジェンダの節はビューが知っているキーだけ(self):
+        keys = [key for key, _, _ in self.o.agenda_sections()]
+        self.assertEqual(keys[0], "why-missing", "冒頭は `なぜ` 未記入の決定")
+        self.assertIn("agenda-items", keys)
 
     def test_すべての型にフィールド宣言がある(self):
         for t in self.o.type_names():

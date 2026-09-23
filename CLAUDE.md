@@ -77,6 +77,18 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
 
 ---
 
+## 議題が親、DEC / Q / ACT が子
+
+議題（AGD）は会議をまたいで続く「決めたいこと」の単位。**子が `議題` で親を1つ指し、
+親は子の一覧を持たない**（逆引きは `wiki.children_of(agd)`）。両方向に書くと食い違う。
+
+- `議題` は Pass 1 が論点に付け、`kime new --from-log` が子へ写す。手で付け替えない
+- 議題の文言は提起者の言葉のまま。議題は決定ではない
+- 載る会議は `予定会議` と status から機械で決まり、決着するまで次回へ持ち越す。閉じるのは人間
+- アジェンダは議事録と同じくこの構造の射影（`kime agenda-input`）。手で書き足さず、議題を起票する
+
+---
+
 ## スキル共通の規約
 
 1. **閾値・語彙・フィールド一覧をスキルに書かない。** 正本は `ontology.yaml`。
@@ -88,9 +100,9 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
 4. **人間の判断を代行しない。** 昇格の承認、`なぜ` の記入、ACT の担当・期限は
    人間が決める。`AskUserQuestion` で聞き、返ってきた言葉をそのまま書く。
 5. **一意に決まるものはスキルに書かせない。道具にやらせる。**
-   導出フィールド（`種別` / `所在` / `硬度` / `担当` / `会議体`）は `kime new`、
+   導出フィールド（`種別` / `所在` / `硬度` / `担当` / `会議体` / `議題`）は `kime new`、
    範囲の問いは `kime scope-questions`、未知語の計数は `kime unknown-terms`、
-   議事録の節構成は `kime minutes-input` が出す。
+   議事録とアジェンダの節構成は `kime minutes-input` / `kime agenda-input` が出す。
    **機械が書き、lint は保険として残す**（逆にすると、食い違いを直すのが人間の仕事になる）。
 6. **非対話実行では、機械的に定まるものだけを反映してよい。**
    解釈を要するもの（`なぜ`、却下理由、昇格の可否、`範囲` の判定）は必ず対話で確認する。
@@ -107,7 +119,9 @@ python3 tools/kime.py verify-quotes --fix      # 引用不一致を「推測」�
 python3 tools/kime.py scope-questions --meeting MTG-... [--write]  # 範囲の問いを定型で起票
 python3 tools/kime.py unknown-terms --meeting MTG-...              # 未知語の候補を拾う
 python3 tools/kime.py views                    # ビュー再生成
-python3 tools/kime.py agenda                   # 次回アジェンダ
+python3 tools/kime.py agenda                   # 次回アジェンダ（ビュー）
+python3 tools/kime.py agenda-input [--meeting MTG-...]   # 次回アジェンダの材料（会議は未作成でよい）
+python3 tools/kime.py new agenda --title "..." --role 顧客PM --meeting MTG-... --write  # 議題を起票
 python3 tools/kime.py review --meeting MTG-...   # 確認②のチェックリスト
 python3 tools/kime.py minutes-input --meeting MTG-... [--edition customer]
 python3 tools/kime.py promote-input --meeting MTG-...
