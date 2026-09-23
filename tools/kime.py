@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""giji — 議事録抽出キットの CLI。
+"""kime — kimegoto（決め事を記録するキット）の CLI。
 
 サブコマンドを振り分けるだけの薄い層。実体は tools/*.py の main(argv) にある
 （フックからインプロセスで呼べるようにするため）。
 
-    python3 tools/giji.py <サブコマンド> [オプション]
+    python3 tools/kime.py <サブコマンド> [オプション]
 """
 
 import os
@@ -17,7 +17,7 @@ if __package__ in (None, ""):
 COMMANDS = {
     "agenda": ("tools.agenda_cmd", "次回アジェンダを出す"),
     "issue": ("tools.issues", "ACT から GitHub Issue の下書きを作る"),
-    "lint": ("tools.gijilint", "カードの整合性を機械的に検査する"),
+    "lint": ("tools.kimelint", "カードの整合性を機械的に検査する"),
     "minutes-input": ("tools.minutes_cmd", "議事録をレンダリングするための材料を組み立てる"),
     "new": ("tools.new_cmd", "雛形から新しいカードを起こす"),
     "unknown-terms": ("tools.terms_cmd", "LOG 本文から未知語の候補を拾う"),

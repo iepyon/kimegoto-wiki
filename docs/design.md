@@ -119,20 +119,20 @@ Pass 4（昇格）は独立したスキルではなく `review` の後半にあ�
 
 | コマンド | 内容 |
 |---|---|
-| `giji lint` | 整合性の機械検査。**error 0 が不変条件**（warning 0 は目指さない） |
-| `giji verify-quotes --fix` | 引用の照合と、不一致の「推測」への降格 |
-| `giji views` | 横断ビュー・次回アジェンダ・指標の生成 |
-| `giji agenda` | 次回アジェンダを標準出力へ |
-| `giji review --meeting MTG-...` | 確認②の25分のチェックリスト |
-| `giji minutes-input --meeting MTG-... [--edition customer]` | 議事録の材料（顧客版の除外は機械が行う） |
-| `giji promote-input --meeting MTG-...` | 昇格候補の材料（**`なぜ` 未記入の決定を落とす**） |
-| `giji new <型> --write` | 雛形からカードを起こす（採番つき） |
-| `giji update <ID> --set k=v` | 既存カードの書き換え（`--add-derived` / `--log` / `--dry-run`） |
-| `giji confirm --meeting MTG-... --sent YYYY-MM-DD` | みなし確定の期限を `確定日` に書き戻す |
-| `giji issue --act ACT-NNN` | GitHub Issue の下書き（`--create` で起票） |
-| `giji schema --check` | `ontology.yaml` と `schema.md` / 雛形の同期 |
+| `kime lint` | 整合性の機械検査。**error 0 が不変条件**（warning 0 は目指さない） |
+| `kime verify-quotes --fix` | 引用の照合と、不一致の「推測」への降格 |
+| `kime views` | 横断ビュー・次回アジェンダ・指標の生成 |
+| `kime agenda` | 次回アジェンダを標準出力へ |
+| `kime review --meeting MTG-...` | 確認②の25分のチェックリスト |
+| `kime minutes-input --meeting MTG-... [--edition customer]` | 議事録の材料（顧客版の除外は機械が行う） |
+| `kime promote-input --meeting MTG-...` | 昇格候補の材料（**`なぜ` 未記入の決定を落とす**） |
+| `kime new <型> --write` | 雛形からカードを起こす（採番つき） |
+| `kime update <ID> --set k=v` | 既存カードの書き換え（`--add-derived` / `--log` / `--dry-run`） |
+| `kime confirm --meeting MTG-... --sent YYYY-MM-DD` | みなし確定の期限を `確定日` に書き戻す |
+| `kime issue --act ACT-NNN` | GitHub Issue の下書き（`--create` で起票） |
+| `kime schema --check` | `ontology.yaml` と `schema.md` / 雛形の同期 |
 
-`giji` は `python3 tools/giji.py` のこと。対象の案件は `.env` の
+`kime` は `python3 tools/kime.py` のこと。対象の案件は `.env` の
 `CURRENT_PROJECT`、または `--root` で指定する。
 
 ### Claude Code の統合
@@ -203,12 +203,12 @@ Pass 4（昇格）は独立したスキルではなく `review` の後半にあ�
 Pass 1  →  segments.yaml を人間が確認（粒度の調整）← ここだけ人が見る
 Pass 2  →  LOG カード生成 + 未知語リスト
 Pass 3  →  論点ごとに反復実行（DEC / Q / ACT）
-python3 tools/giji.py scope-questions --meeting MTG-...  ← 範囲の問いを定型で起票
-python3 tools/giji.py verify-quotes --fix  ← 引用を検証、不一致は「推測」に降格
-python3 tools/giji.py lint                 ← error 0 を確認
+python3 tools/kime.py scope-questions --meeting MTG-...  ← 範囲の問いを定型で起票
+python3 tools/kime.py verify-quotes --fix  ← 引用を検証、不一致は「推測」に降格
+python3 tools/kime.py lint                 ← error 0 を確認
 ```
 
-**Pass 4 は①では回さない。** `giji promote-input` は理由がどこにも記録されていない
+**Pass 4 は①では回さない。** `kime promote-input` は理由がどこにも記録されていない
 決定を材料から落とす。①の時点では `なぜ` が必ず未記入なので、材料が痩せる。
 ②の 2-2 で `なぜ` を書いたあと、2-4 の直前に回す（下表）。順番を守らせるために、
 Pass 4 は独立したスキルではなく `/review` の中に置いてある。
@@ -228,7 +228,7 @@ Claude Code では `/segment` `/log-cards` `/extract` のスキルが
 | 2-3 | ACT の担当・期限を入れる（空欄が正常な出力）／前回 ACT の status を更新 | 4分 |
 | 2-4 | **ここで Pass 4 を回し**（`/review` が続けて進行する）、出た昇格候補を yes/no で承認（ASM は `脆弱性: 高` のものだけ） | 6分 |
 
-`python3 tools/giji.py review --meeting MTG-YYYYMMDD` が、この順序で
+`python3 tools/kime.py review --meeting MTG-YYYYMMDD` が、この順序で
 **該当するカードだけ**を並べて出す（0件の節は「0件」とだけ出る）。
 Claude Code では `/review` スキルが進行する。
 
@@ -245,7 +245,7 @@ Claude Code では `/review` スキルが進行する。
 
 ### ③ 議事録（LLM・5分）
 
-`python3 tools/giji.py minutes-input --meeting MTG-YYYYMMDD` で材料を組み立て、
+`python3 tools/kime.py minutes-input --meeting MTG-YYYYMMDD` で材料を組み立て、
 `/minutes` スキルで社内版を生成する。リーダのレビュー後、必要なら
 `--edition customer` で顧客提出版を生成して PDF 化。
 
@@ -259,7 +259,7 @@ LLM の遵守に賭けない。LLM の仕事は残った情報の文章化だけ
 - `完了` `取り下げ` 以外の ACT すべて
 - 四半期に1回: `status: 有効` かつ `脆弱性: 高` の ASM だけ棚卸し（5分）
 
-`python3 tools/giji.py agenda` が出す。Stop フックがターンの終わりに
+`python3 tools/kime.py agenda` が出す。Stop フックがターンの終わりに
 `views/agenda-next.md` を作り直すので、人が忘れても勝手に出てくる。
 
 **④ が「Wiki を使う動機」になる。** 溜める動機より引く動機を先に作るのが定着の条件。

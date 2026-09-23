@@ -24,7 +24,7 @@ description: LOG カードから決定事項・未決事項・アクションを
 
 ## 手順
 
-1. `python3 tools/giji.py lint --check log-format --root <案件>` で LOG の形式を確認
+1. `python3 tools/kime.py lint --check log-format --root <案件>` で LOG の形式を確認
 2. `種別` が `報告` / `雑談` なら **DEC は抽出しない**（ACT と Q のみ）。
    ただし決定権のある役割の結論の表明（「そのあたりは任せます」など）が現れたら、
    **Q として拾う**（下の「報告・雑談での取りこぼし」）
@@ -32,13 +32,13 @@ description: LOG カードから決定事項・未決事項・アクションを
 4. カードを作る。**導出フィールドは自分で書かない**（下記）
 
    ```
-   python3 tools/giji.py new decision --title "..." \
+   python3 tools/kime.py new decision --title "..." \
        --from-log LOG-20260918-03 --role 顧客PM --write
    ```
 
-5. 全論点を終えたら `python3 tools/giji.py scope-questions --meeting MTG-YYYYMMDD` で
+5. 全論点を終えたら `python3 tools/kime.py scope-questions --meeting MTG-YYYYMMDD` で
    範囲の問いを確認し、内容を見たうえで `--write` を付けて起票する
-6. `python3 tools/giji.py verify-quotes --fix` → `giji lint` で error 0 を確認
+6. `python3 tools/kime.py verify-quotes --fix` → `kime lint` で error 0 を確認
 7. 人間の確認は `/review` が進行する（このスキルでは求めない）
 
 ## 非対称に設計する
@@ -205,17 +205,17 @@ updates:
 - 発話に「当初の要件に入っていた／いない」の明示があればそれに従う
 - **明示がなければ無条件で `判定保留`。推測して判定しない**
 
-`判定保留` から問いを起こすのは `giji scope-questions` の仕事。どの決定に問いを立てるか、
+`判定保留` から問いを起こすのは `kime scope-questions` の仕事。どの決定に問いを立てるか、
 題名をどうするか、誰に聞くかは条件も文面も一意に決まるので、**自分で Q カードを書かない**。
 起票済みのものは自動で飛ばされる。
 
 ここで無理に判定すると、後で追加請求の根拠を失う。範囲は `判定保留` のまま残し、
-②の 2-0 で人間が見る（`giji review` が最初に出す）。
+②の 2-0 で人間が見る（`kime review` が最初に出す）。
 
 ## 機械が埋めるもの、空欄のまま残すもの
 
 `決定の所在` / `会議体` / `種別` / `担当` / `所在` / `硬度` / `derived_from` / 日付は
-`giji new --from-log --role` が role-mapping と会議メタから埋める。**自分で書かない。**
+`kime new --from-log --role` が role-mapping と会議メタから埋める。**自分で書かない。**
 一意に決まる写像なので、手で書けば取り違えるだけ損をする。役割が未登録のとき、
 決定権が「あり」でないときはコマンドが標準エラーに注意を出す。**その注意に従う。**
 

@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 
 from tests.fixtures import ROLE_MAPPING, WikiTestCase
-from tools import gijilint
+from tools import kimelint
 from tools.cards import Wiki
 
 TODAY = datetime.date(2026, 9, 18)
@@ -23,7 +23,7 @@ LOG = ("LOG", "LOG-20260918-01", {})
 class LintTestCase(WikiTestCase):
     def problems(self, cards, check_id, today=TODAY, role_mapping=ROLE_MAPPING):
         wiki = self.wiki(cards, role_mapping)
-        return gijilint.run(wiki, today=today, only={check_id})
+        return kimelint.run(wiki, today=today, only={check_id})
 
     def assertRaised(self, cards, check_id, **kw):
         found = self.problems(cards, check_id, **kw)
@@ -49,23 +49,23 @@ class FrontmatterTest(unittest.TestCase):
 
     def test_壊れたfrontmatterを名指しする(self):
         w = self._wiki("DEC-001.md", "---\nid: DEC-001\nただの文\n---\n")
-        found = gijilint.run(w, today=TODAY, only={"frontmatter"})
+        found = kimelint.run(w, today=TODAY, only={"frontmatter"})
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0].where, "DEC-001")
 
     def test_壊れたカードは他のチェックを巻き添えにしない(self):
         # コロン1つの書き損じが、無関係な error を量産しないこと。
         w = self._wiki("DEC-001.md", "---\nid: DEC-001\nただの文\n---\n")
-        others = [p for p in gijilint.run(w, today=TODAY) if p.check != "frontmatter"]
+        others = [p for p in kimelint.run(w, today=TODAY) if p.check != "frontmatter"]
         self.assertEqual(others, [], [p.message for p in others])
 
     def test_健全なカードでは鳴らない(self):
         w = self._wiki("DEC-001.md", "---\nid: DEC-001\ntype: decision\n---\n")
-        self.assertEqual(gijilint.run(w, today=TODAY, only={"frontmatter"}), [])
+        self.assertEqual(kimelint.run(w, today=TODAY, only={"frontmatter"}), [])
 
     def test_型に当たらないIDは迷子として鳴る(self):
         w = self._wiki("メモ.md", "---\nid: メモ\n---\n")
-        self.assertTrue(gijilint.run(w, today=TODAY, only={"frontmatter"}))
+        self.assertTrue(kimelint.run(w, today=TODAY, only={"frontmatter"}))
 
 
 class IdFilenameTest(LintTestCase):
@@ -334,9 +334,9 @@ class RoleMappingTest(LintTestCase):
     def test_無ければ鳴る(self):
         wiki = self.wiki([LOG, ("DEC", "DEC-001", {})])
         (wiki.root / "role-mapping.yaml").unlink()
-        found = gijilint.run(wiki, today=TODAY, only={"role-mapping"})
+        found = kimelint.run(wiki, today=TODAY, only={"role-mapping"})
         self.assertEqual(len(found), 1)
-        self.assertEqual(found[0].level, gijilint.ERROR)
+        self.assertEqual(found[0].level, kimelint.ERROR)
 
 
 class RoleUnknownTest(LintTestCase):
@@ -383,7 +383,7 @@ class ConHardnessTest(LintTestCase):
     def test_表にない組み合わせは警告にとどめる(self):
         # expectation × 契約 は schema.md の表が定めていない。推測で埋めない。
         found = self.assertRaised(self._con("expectation", "契約", "岩盤"), "con-hardness")
-        self.assertEqual(found[0].level, gijilint.WARNING)
+        self.assertEqual(found[0].level, kimelint.WARNING)
 
 
 # ============================================================ 二層構造・運用
@@ -482,7 +482,7 @@ class TermConflictTest(LintTestCase):
 class WhyMissingTest(LintTestCase):
     def test_未記入なら鳴る(self):
         found = self.assertRaised([LOG, ("DEC", "DEC-001", {"なぜ": ""})], "why-missing")
-        self.assertEqual(found[0].level, gijilint.WARNING, "必須フィールド化すると作話を招く")
+        self.assertEqual(found[0].level, kimelint.WARNING, "必須フィールド化すると作話を招く")
 
     def test_記入済みなら鳴らない(self):
         self.assertQuiet([LOG, ("DEC", "DEC-001", {"なぜ": "失効保証を IdP 側に寄せるため"})],
@@ -566,7 +566,7 @@ class LogBarrenTest(LintTestCase):
         wiki = self.wiki([("LOG", "LOG-20260918-01", {"種別": "議論"})])
         (wiki.root / "meetings" / "MTG-20260918" / "extraction-notes.yaml").write_text(
             body, encoding="utf-8")
-        return gijilint.run(wiki, only={"log-barren"})
+        return kimelint.run(wiki, only={"log-barren"})
 
     def test_理由が書かれていれば鳴らない(self):
         # LOG は不変層なので後から書き足せない。理由は会議ごとの別ファイルに置く。
@@ -608,12 +608,12 @@ class SuiteTest(LintTestCase):
             ("CON", "CON-001", {"影響する決定": ["DEC-001"]}),
             ("TERM", "TERM-001", {}),
         ])
-        errors = [p for p in gijilint.run(wiki, today=TODAY) if p.level == gijilint.ERROR]
+        errors = [p for p in kimelint.run(wiki, today=TODAY) if p.level == kimelint.ERROR]
         self.assertEqual(errors, [], [str(p.message) for p in errors])
 
     def test_すべてのチェックが登録されている(self):
-        self.assertEqual(len(gijilint.check_ids()), len(set(gijilint.check_ids())))
-        self.assertGreater(len(gijilint.check_ids()), 30)
+        self.assertEqual(len(kimelint.check_ids()), len(set(kimelint.check_ids())))
+        self.assertGreater(len(kimelint.check_ids()), 30)
 
     def test_チェックIDで絞れる(self):
         found = self.problems([LOG, ("DEC", "DEC-001", {"status": "決定済"})], "vocab")

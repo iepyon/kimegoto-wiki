@@ -12,9 +12,9 @@
    `issue` フィールドを持ち、再実行しても飛ばされる。
 
 使い方:
-    giji issue --act ACT-008                      # 本文と gh コマンドを出すだけ
-    giji issue --all-open --repo owner/repo       # 未完了のもの全部（起票はしない）
-    giji issue --act ACT-008 --repo owner/repo --create
+    kime issue --act ACT-008                      # 本文と gh コマンドを出すだけ
+    kime issue --all-open --repo owner/repo       # 未完了のもの全部（起票はしない）
+    kime issue --act ACT-008 --repo owner/repo --create
 """
 
 import argparse
@@ -119,7 +119,7 @@ def create(repo, heading, body):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="giji issue",
+    ap = argparse.ArgumentParser(prog="kime issue",
                                  description="ACT から GitHub Issue の下書きを作る")
     ap.add_argument("--act", action="append", default=[], help="対象の ACT（複数可）")
     ap.add_argument("--all-open", action="store_true", help="未完了の ACT すべて")

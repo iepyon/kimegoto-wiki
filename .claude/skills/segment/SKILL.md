@@ -17,7 +17,7 @@ description: 会議の文字起こしを論点単位に切り出す（Pass 1）�
    `transcript.md` を置いてもらう
 2. `role-mapping.yaml` を読む（役割ラベルの表記を合わせるため）
 3. `meetings/MTG-YYYYMMDD/segments.yaml` に書き出す
-4. `python3 tools/giji.py lint --check segment-format,segment-count,segment-role` で形式を確認する
+4. `python3 tools/kime.py lint --check segment-format,segment-count,segment-role` で形式を確認する
 5. **人間に粒度の確認を求めて、そこで止まる**
 
 ## 形式は機械が見る

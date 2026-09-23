@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`giji agenda` — 次回アジェンダを標準出力へ。
+"""`kime agenda` — 次回アジェンダを標準出力へ。
 
 ④が「Wiki を使う動機」になる。溜める動機より引く動機を先に作るのが定着の条件。
 """
@@ -13,7 +13,7 @@ from tools.cards import Wiki, resolve_root
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="giji agenda", description="次回アジェンダを出す")
+    ap = argparse.ArgumentParser(prog="kime agenda", description="次回アジェンダを出す")
     ap.add_argument("--root", default=None)
     ap.add_argument("--today", default=None)
     args = ap.parse_args(argv)

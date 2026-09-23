@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`giji update` / `giji confirm` — 既存カードの書き換え。
+"""`kime update` / `kime confirm` — 既存カードの書き換え。
 
 カードと会議は多対多で、同じ論点が複数の会議にまたがって更新されていく。
 その更新（`status` の変化、`resolved_by`、`更新履歴`、`derived_from` への LOG 追記）が
@@ -102,7 +102,7 @@ def _split_set(raw):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="giji update", description="既存カードのフィールドを書き換える")
+        prog="kime update", description="既存カードのフィールドを書き換える")
     ap.add_argument("id", help="カード ID（DEC-014 など）")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
                     help="トップレベルのフィールドを置き換える（複数可）")
@@ -161,7 +161,7 @@ def business_days_after(start, days):
 
 def main_confirm(argv=None):
     ap = argparse.ArgumentParser(
-        prog="giji confirm",
+        prog="kime confirm",
         description="みなし確定の期限を決定カードの `確定日` に書き戻す")
     ap.add_argument("--meeting", required=True, help="会議 ID")
     ap.add_argument("--sent", required=True, help="議事録を送付した日（YYYY-MM-DD）")

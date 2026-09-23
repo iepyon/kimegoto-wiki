@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`giji unknown-terms` — LOG 本文から未知語の候補を機械的に拾う。
+"""`kime unknown-terms` — LOG 本文から未知語の候補を機械的に拾う。
 
 未知語の3条件のうち、
 
@@ -103,7 +103,7 @@ def render(wiki, meeting_id):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="giji unknown-terms",
+    ap = argparse.ArgumentParser(prog="kime unknown-terms",
                                  description="LOG 本文から未知語の候補を拾う")
     ap.add_argument("--meeting", default=None, help="会議 ID（既定: 最新）")
     ap.add_argument("--root", default=None)

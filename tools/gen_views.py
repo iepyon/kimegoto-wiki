@@ -9,9 +9,9 @@ lint に依存させない。ビュー生成が lint を import すると、チ�
 だけでビューが壊れうる。共有するのは記録層（cards.py）までにとどめる。
 
 使い方:
-    python3 tools/giji.py views                    # 全部生成
-    python3 tools/giji.py views --only open-items  # 1つだけ
-    python3 tools/giji.py views --check            # 差分があれば終了コード 1
+    python3 tools/kime.py views                    # 全部生成
+    python3 tools/kime.py views --only open-items  # 1つだけ
+    python3 tools/kime.py views --check            # 差分があれば終了コード 1
 """
 
 import argparse
@@ -389,7 +389,7 @@ def generate(wiki, only=None, today=None, check=False):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="giji views", description="カードからビューを生成する")
+    ap = argparse.ArgumentParser(prog="kime views", description="カードからビューを生成する")
     ap.add_argument("--root", default=None, help="案件ディレクトリ")
     ap.add_argument("--only", choices=sorted(VIEWS), default=None)
     ap.add_argument("--check", action="store_true", help="書かずに鮮度だけを見る")
@@ -410,7 +410,7 @@ def main(argv=None):
     written, stale = generate(wiki, args.only, today, args.check)
     if args.check:
         for name in stale:
-            print("views/%s.md が古い（`giji views` で再生成する）" % name)
+            print("views/%s.md が古い（`kime views` で再生成する）" % name)
         print("ビュー: %d件が古い" % len(stale))
         return 1 if stale else 0
     for name in written:

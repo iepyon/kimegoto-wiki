@@ -57,7 +57,7 @@ syntax to learn"）。
 
 ## 生成するもの
 
-`giji openspec --change <name>` が、指定した決定群から `proposal.md` の下書きを出す。
+`kime openspec --change <name>` が、指定した決定群から `proposal.md` の下書きを出す。
 
 | OpenSpec の節 | 材料 |
 |---|---|
@@ -73,7 +73,7 @@ syntax to learn"）。
 
 ## 検証するもの
 
-`giji openspec --check` が、我々の側だけで検査する。
+`kime openspec --check` が、我々の側だけで検査する。
 
 | チェック | 別 | 内容 |
 |---|---|---|

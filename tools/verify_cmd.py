@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`giji verify-quotes` / `verify_quotes.py` の本体。
+"""`kime verify-quotes` / `verify_quotes.py` の本体。
 
 検出だけなら lint でも見えるが、**降格の書き戻しはここにしかない**。
 運用手順①が「Pass 3 のあとに --fix」で確定しているため、単体で叩ける入口を

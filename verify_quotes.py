@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""llm-wiki 引用検証（`giji verify-quotes` の互換ラッパ）
+"""llm-wiki 引用検証（`kime verify-quotes` の互換ラッパ）
 
     python3 verify_quotes.py               # 検証して報告するだけ
     python3 verify_quotes.py --fix         # 一致しない引用の信頼度を「推測」に降格

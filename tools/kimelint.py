@@ -4,7 +4,7 @@
 設計の原則3つ。
 
 1. **検出だけ。ファイルを書き換えない。** 降格の書き戻しは
-   `giji verify-quotes --fix` にしかない。lint が黙って直すと、人間が
+   `kime verify-quotes --fix` にしかない。lint が黙って直すと、人間が
    「何が起きたか」を見ないまま通過してしまう。
 
 2. **非対称。** 慎重側への倒し（`推測` を名乗る、空欄のままにする）は止めない。
@@ -643,7 +643,7 @@ def check_promote_gate(ctx):
     **昇格の門そのものは lint では守れない。** カードには「どの決定から昇格したか」
     が残らず（残るのは derived_from の LOG だけ）、`影響する決定` /
     `崩れたら見直す決定` は昇格元ではなく影響先を指す。だから事後に門の破れを
-    判定する根拠が無い。門は `giji promote-input` が `なぜ` 未記入の DEC を
+    判定する根拠が無い。門は `kime promote-input` が `なぜ` 未記入の DEC を
     入力から落とすことで物理的に閉じる。
 
     ここで見るのはその副作用のほう — 紐づく決定がすべて `なぜ` 未記入なら、
@@ -927,7 +927,7 @@ def check_ids():
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="giji lint", description="カードの整合性を機械的に検査する")
+    ap = argparse.ArgumentParser(prog="kime lint", description="カードの整合性を機械的に検査する")
     ap.add_argument("--root", default=None, help="案件ディレクトリ")
     ap.add_argument("--format", choices=["text", "json"], default="text")
     ap.add_argument("--check", default=None, help="チェック ID をカンマ区切りで指定")
