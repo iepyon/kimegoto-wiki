@@ -32,7 +32,7 @@
 
 `/ingest` は各パスのスキル（`/segment` `/log-cards` `/extract`）を順に呼ぶ束ね役で、
 判定基準はそれぞれのスキルにしか無い。パスを1つだけ回したいときは直接呼ぶ。
-他に `/lint`（整合性の点検）と `/issue`（ACT を GitHub Issue に）。
+他に `/setup`（最初に一度だけ）、`/lint`（整合性の点検）、`/issue`（ACT を GitHub Issue に）。
 
 以下の例は、同梱のデモ案件 `projects/demo-kb`（5回分の会議を記録済み）を使う。
 
@@ -40,24 +40,27 @@
 
 ## 0. 最初に一度だけ：セットアップ
 
-```sh
-sh tools/setup.sh demo-kb        # 門（pre-commit）を立て、.env に対象案件を書く
-```
+> 「セットアップして」「新しい案件を始めたい」「デモを動かしたい」
+
+`/setup` が、どの案件で始めるかを聞いて `tools/setup.sh` を呼ぶ。門（pre-commit）を立て、
+`.env` に対象案件を書き、門を一度通す。
 
 **これを飛ばすと `.githooks/pre-commit` は動かない。** clone しただけでは git は
 `.githooks` を見に行かない。
 
-自分の案件を始めるときは、雛形をコピーしてから同じコマンドを打つ。
+新しい案件なら、`/setup` が雛形（`templates/project`）から `projects/<案件名>` を作り、
+続けて **`role-mapping.yaml` を聞き取りで埋める**。話者の役割ラベル（顧客PM、開発リーダなど）
+ごとに、社名・決定権・決定の種別を人が答える。決定権の無い役割の発言だけでは DEC に
+ならないので、ここが抽出の精度を決める。推測では埋めない。
+何を DEC とするかの境界は [`decision-guide.md`](decision-guide.md) で、チームで先にすり合わせておく。
+
+スキルを使わずに打つなら同じことをこうする。
 
 ```sh
-cp -r templates/project projects/<案件名>
+sh tools/setup.sh demo-kb                   # デモで始める
+cp -r templates/project projects/<案件名>    # 自分の案件で始める
 sh tools/setup.sh <案件名>
 ```
-
-そのあと **`projects/<案件名>/role-mapping.yaml` を埋める**。話者の役割ラベル
-（顧客PM、開発リーダなど）ごとに、社名・決定権・決定の種別を書く。
-決定権の無い役割の発言だけでは DEC にならないので、ここが抽出の精度を決める。
-何を DEC とするかの境界は [`decision-guide.md`](decision-guide.md) で、チームで先にすり合わせておく。
 
 ---
 
