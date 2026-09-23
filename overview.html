@@ -473,7 +473,7 @@
       <thead><tr><th>層</th><th>型</th><th>内容</th><th>同一性</th></tr></thead>
       <tbody>
         <tr><td class="layer">フロー</td><td><span class="id">LOG</span> 会話ログ</td><td>論点単位に切り出した逐語の束。他のカードの親であり、<strong>すべての引用の照合先</strong></td><td>毎回新規</td></tr>
-        <tr><td class="layer">フロー</td><td><span class="id">DEC</span> 決定事項</td><td>決定・決定の所在（役割）・会議体・<strong>範囲（当初合意内/範囲外/判定保留）</strong>・却下した代替案とその理由</td><td>更新される</td></tr>
+        <tr><td class="layer">フロー</td><td><span class="id">DEC</span> 決定事項</td><td>決定・決定の所在（役割）・会議体・<strong>スコープ（当初スコープ内/スコープ外/判定保留）</strong>・却下した代替案とその理由</td><td>更新される</td></tr>
         <tr><td class="layer">フロー</td><td><span class="id">Q</span> 未定事項</td><td>結論が出ていない論点。確認先と<strong>対立当事者</strong>を役割で持つ</td><td>更新される</td></tr>
         <tr><td class="layer">フロー</td><td><span class="id">ACT</span> アクション</td><td>会社間の約束。<strong>担当は社名</strong>、期限つき。唯一「閉じる」型</td><td>閉じる</td></tr>
         <tr><td class="layer">ストック</td><td><span class="id">CON</span> 制約</td><td>選択肢を削る環境の性質。<strong>種類（property / expectation）</strong>で失効条件の要否が変わる</td><td>1枚が育つ</td></tr>
@@ -743,7 +743,7 @@
   <ol class="steps">
     <li><div><b>Pass 1 を回して粒度を見る<span class="who m">LLM</span><span class="who h">人 3分</span></b><span class="d">出力は10行。分割しすぎ・粗すぎだけ直す。ここを通してから先に進む。</span></div></li>
     <li><div><b>Pass 2 → Pass 3 → 引用検証<span class="who m">LLM</span></b><span class="d">LOG カード化、論点ごとの抽出、<code>verify_quotes.py --fix</code> で不一致を降格。待ち時間のみ。</span></div></li>
-    <li><div><b>②-0 <code>範囲: 判定保留</code> の DEC を見る<span class="who h">人 3分</span></b><span class="d">受託開発では最優先。他を飛ばしてもここは見る。判定保留のまま放置すると、後で追加請求の根拠を失う。</span></div></li>
+    <li><div><b>②-0 <code>スコープ: 判定保留</code> の DEC を見る<span class="who h">人 3分</span></b><span class="d">受託開発では最優先。他を飛ばしてもここは見る。判定保留のまま放置すると、後で追加請求の根拠を失う。</span></div></li>
     <li><div><b>②-1 拾い漏れと推測の確認<span class="who h">人 4分</span></b><span class="d"><code>review_required</code> と欠落ガードの理由を見る。<code>信頼度: 推測</code> を確認する。<strong>最大のエラー源は欠落</strong>なのでここを飛ばさない。</span></div></li>
     <li><div><b>②-2 <code>なぜ</code> を書く<span class="who h">人 8分</span></b><span class="d">Y-statement の穴埋め。<code>却下理由: 記録なし</code> を埋められるなら埋める。<code>作らない</code> の3値を選ぶ。</span></div></li>
     <li><div><b>②-3 アクションの担当・期限と状況<span class="who h">人 4分</span></b><span class="d">担当の社名は自動で入る。<strong>空欄が正常な出力</strong>（抽出研究でも担当・期限は本文より当てにくい）。前回 ACT の status を更新する。</span></div></li>
@@ -775,7 +775,7 @@
       <tbody>
         <tr><td>ASM の <code>検知方法</code> → <strong><code>signpost</code></strong>（事象または閾値に限る）。<code>脆弱性</code> の軸を追加し、<strong>高のものだけ追跡</strong></td><td>Assumption-Based Planning（RAND）の標準用語。「an event or threshold that, if detected, signifies that a vulnerable assumption is being broken」。load-bearing と vulnerable の2軸で絞るのが本来</td></tr>
         <tr><td>CON に <strong><code>種類: property / expectation</code></strong> を追加。property は失効条件が不要</td><td>KAOS の domain property / expectation の区別。判定テストは「<em>assumptions cannot be enforced by the software-to-be</em>」（van Lamsweerde 2001）</td></tr>
-        <tr><td>DEC に <strong><code>範囲: 当初合意内 / 範囲外(追加) / 判定保留</code></strong>。判定保留は自動で Q を起票</td><td>受託開発の実務。課題ごとに範囲の内外を都度明確にすることが追加請求の根拠になる（裁判例あり）。<code>種別</code>とは直交する軸</td></tr>
+        <tr><td>DEC に <strong><code>スコープ: 当初スコープ内 / スコープ外(追加) / 判定保留</code></strong>。判定保留はアジェンダと議事録に「スコープの確認」として出る（Q は立てない）</td><td>受託開発の実務。課題ごとにスコープの内外を都度明確にすることが追加請求の根拠になる（裁判例あり）。<code>種別</code>とは直交する軸</td></tr>
         <tr><td>顧客提出版に<strong>みなし確定の一文</strong>（3営業日）。確定日を DEC に書き戻す</td><td>相手方が確認していない記録は水掛け論を招く。「一定期間内に異議がなければ確定」のルール設定が有効（伊藤雅浩弁護士 2017）</td></tr>
         <tr><td>引用は<strong>合意・復唱の発話から採る</strong>（提案発話は最後）</td><td>決定発話は Issue / Proposal / Restatement / Agreement に分かれる。提案は言い換えられ撤回される（Fernández ほか 2008）</td></tr>
         <tr><td><strong>沈黙由来の却下は <code>信頼度: 推測</code> 固定</strong>（以前は「言及のみ」にしていた）</td><td>沈黙を却下の根拠に使う手法が文献にない。明示的な合意ですら κ 0.63 / F1 0.39 で最難</td></tr>
@@ -845,7 +845,7 @@
         <tr><td class="layer">上乗せ</td><td><code>却下理由: 記録なし</code> の比率</td><td>高いままなら、会議で代替案が言語化されていない。Wiki の問題ではなく意思決定の仕方の問題</td></tr>
         <tr><td class="layer">共通</td><td><code>信頼度: 推測</code> の件数</td><td>抽出プロンプトか話者分離の精度の問題</td></tr>
         <tr><td class="layer">共通</td><td><code>review_required</code> が立った数</td><td>欠落ガードの発火。多いなら Pass 3 のプロンプトか粒度の問題</td></tr>
-        <tr><td class="layer">受託</td><td><code>範囲: 判定保留</code> の消化率</td><td>判定保留のまま放置された決定は、後で追加請求の根拠を失う</td></tr>
+        <tr><td class="layer">受託</td><td><code>スコープ: 判定保留</code> の消化率</td><td>判定保留のまま放置された決定は、後で追加請求の根拠を失う</td></tr>
         <tr><td class="layer">上乗せ</td><td>ASM の棚卸しで「崩れた」判定が出た数</td><td>前提の逆リンクが機能しているか</td></tr>
       </tbody>
     </table>

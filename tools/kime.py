@@ -27,7 +27,7 @@ COMMANDS = {
     "confirm": ("tools.confirm_cmd", "みなし確定の期限を `確定日` に書き戻す"),
     "promote-input": ("tools.promote_cmd", "昇格候補を出すための材料（理由が記録されていない決定は落とす）"),
     "review": ("tools.review_cmd", "確認②の25分のチェックリスト"),
-    "scope-questions": ("tools.scope_cmd", "`範囲: 判定保留` の決定に定型の問いを起票する"),
+    "scope-questions": ("tools.scope_cmd", "`スコープ: 判定保留` の決定に定型の問いを起票する"),
     "status": ("tools.status_cmd", "いまの会議の進み具合と、次にやることを出す"),
     "schema": ("tools.gen_schema_doc", "ontology.yaml と schema.md / 雛形の同期"),
     "verify-quotes": ("tools.verify_cmd", "引用を LOG カードと照合する（--fix で降格）"),

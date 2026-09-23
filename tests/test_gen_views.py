@@ -65,7 +65,7 @@ class OpenItemsTest(ViewTestCase):
         self.assertNotIn("追跡しない前提", section)
 
     def test_件数のまとめを冒頭に出す(self):
-        text = self.render([LOG, ("DEC", "DEC-001", {"範囲": "判定保留"})], "open-items")
+        text = self.render([LOG, ("DEC", "DEC-001", {"スコープ": "判定保留"})], "open-items")
         self.assertIn("| 区分 | 件数 |", text)
 
     def test_空でも壊れない(self):

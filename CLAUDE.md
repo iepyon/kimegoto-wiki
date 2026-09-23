@@ -83,9 +83,9 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
   （逆引きは `wiki.children_of(agd)`）
 - **制約・前提はストック側が決定を指す**（CON の `影響する決定`、ASM の `崩れたら見直す決定`）。
   DEC 側に `制約` / `前提` を書かない（逆引きは `wiki.constraints_of(dec)` / `assumptions_of(dec)`）
-- **範囲の確認は Q カードにしない。** DEC の `範囲: 判定保留` がそのまま「まだ顧客に聞いていない」を
-  表し、アジェンダと議事録に「範囲の確認」として射影される（`kime scope-questions`）。
-  人が `範囲` を書けば消える。閉じる操作も、閉じ忘れの検査も要らない
+- **スコープの確認は Q カードにしない。** DEC の `スコープ: 判定保留` がそのまま「まだ顧客に聞いていない」を
+  表し、アジェンダと議事録に「スコープの確認」として射影される（`kime scope-questions`）。
+  人が `スコープ` を書けば消える。閉じる操作も、閉じ忘れの検査も要らない
 
 両方向に書く／同じ状態を2枚に写すと、必ず食い違い、直すのが人の仕事になる。
 
@@ -114,11 +114,11 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
    人間が決める。`AskUserQuestion` で聞き、返ってきた言葉をそのまま書く。
 5. **一意に決まるものはスキルに書かせない。道具にやらせる。**
    導出フィールド（`種別` / `所在` / `硬度` / `担当` / `会議体` / `議題`）は `kime new`、
-   範囲の確認の一覧は `kime scope-questions`、未知語の計数は `kime unknown-terms`、
+   スコープの確認の一覧は `kime scope-questions`、未知語の計数は `kime unknown-terms`、
    議事録とアジェンダの節構成は `kime minutes-input` / `kime agenda-input` が出す。
    **機械が書き、lint は保険として残す**（逆にすると、食い違いを直すのが人間の仕事になる）。
 6. **非対話実行では、機械的に定まるものだけを反映してよい。**
-   解釈を要するもの（`なぜ`、却下理由、昇格の可否、`範囲` の判定）は必ず対話で確認する。
+   解釈を要するもの（`なぜ`、却下理由、昇格の可否、`スコープ` の判定）は必ず対話で確認する。
 7. **順序は束ね役に、判定基準はパスのスキルに。** `ingest` は Pass 1〜3 の順序と止まる
    場所だけを持ち、判定基準を写さない。各パスのスキルは順序を持たない。
    どこまで済んだか・いまの会議は `kime status` が数える。人にもスキルにも覚えさせない。
@@ -133,7 +133,7 @@ python3 tools/kime.py                          # サブコマンド一覧
 python3 tools/kime.py status                   # いまの会議・どこまで済んだか・次にやること
 python3 tools/kime.py lint                     # 整合性検査（error 0 が不変条件）
 python3 tools/kime.py verify-quotes --fix      # 引用不一致を「推測」に降格
-python3 tools/kime.py scope-questions [--meeting MTG-...]  # 範囲の確認（`判定保留` の決定の射影。カードは作らない）
+python3 tools/kime.py scope-questions [--meeting MTG-...]  # スコープの確認（`判定保留` の決定の射影。カードは作らない）
 python3 tools/kime.py unknown-terms --meeting MTG-...              # 未知語の候補を拾う
 python3 tools/kime.py views                    # ビュー再生成
 python3 tools/kime.py agenda                   # 次回アジェンダ（ビュー）

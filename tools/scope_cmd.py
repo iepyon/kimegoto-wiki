@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""`kime scope-questions` — `範囲: 判定保留` の決定を、顧客に聞く問いとして出す。
+"""`kime scope-questions` — `スコープ: 判定保留` の決定を、顧客に聞く問いとして出す。
 
-受託開発では、決定が当初の合意範囲に入っていたかどうかが後の追加請求の根拠になる。
-発話に明示が無ければ `範囲` は `判定保留` のまま残し、**顧客に聞く問いだけ**を出す。
+受託開発では、決定が当初のスコープに入っていたかどうかが後の追加請求の根拠になる。
+発話に明示が無ければ `スコープ` は `判定保留` のまま残し、**顧客に聞く問いだけ**を出す。
 「どの決定を聞くか」「問いの文面」「誰に聞くか」は条件も文面も一意に決まるので、
 LLM に書かせない。正本は `ontology.yaml` の `scope-question`。
 
-**カードにはしない。** `範囲: 判定保留` という決定の状態がそのまま「まだ聞いていない」を
-表している。以前はここから Q カードを起票していたが、同じ事実が2箇所（決定の `範囲` と
+**カードにはしない。** `スコープ: 判定保留` という決定の状態がそのまま「まだ聞いていない」を
+表している。以前はここから Q カードを起票していたが、同じ事実が2箇所（決定の `スコープ` と
 Q の `status`）に書かれ、閉じ忘れの lint・`resolved_by` の流用・題名の一致で元の決定を
-推定する照合が要った。射影にすれば、2-0 で人が `範囲` を書いた時点で消える。
+推定する照合が要った。射影にすれば、2-0 で人が `スコープ` を書いた時点で消える。
 
-同じ写像を、アジェンダの「範囲の確認」節・議事録の未決事項／確認事項・確認② 2-0 が使う。
+同じ写像を、アジェンダの「スコープの確認」節・議事録の未決事項／確認事項・確認② 2-0 が使う。
 """
 
 import argparse
@@ -25,7 +25,7 @@ def confirm_to(wiki, decision):
     """その問いを誰に聞くか。
 
     決定を述べた役割が顧客側ならその役割。そうでなければ顧客側で決定権のある
-    役割にフォールバックする（範囲の交渉相手は常に顧客側なので、自社側の役割に
+    役割にフォールバックする（スコープの交渉相手は常に顧客側なので、自社側の役割に
     問いを立てても誰も答えられない）。引けなければ空欄で返す。
     """
     o = wiki.ontology
@@ -41,7 +41,7 @@ def confirm_to(wiki, decision):
 
 
 def _askable_decisions(wiki, meeting_id=None):
-    """範囲を顧客に問う種別の決定。`ontology.yaml` の `when-種別` をそのまま当てる。"""
+    """スコープを顧客に問う種別の決定。`ontology.yaml` の `when-種別` をそのまま当てる。"""
     spec = wiki.ontology.scope_question or {}
     want_kinds = spec.get("when-種別", [])
     if not isinstance(want_kinds, list):
@@ -56,15 +56,15 @@ def _askable_decisions(wiki, meeting_id=None):
 
 
 def pending_scope(wiki):
-    """まだ聞いていないことを表す `範囲` の値（正本は `ontology.yaml` の `scope-question`）。"""
-    return (wiki.ontology.scope_question or {}).get("when-範囲", "判定保留")
+    """まだ聞いていないことを表す `スコープ` の値（正本は `ontology.yaml` の `scope-question`）。"""
+    return (wiki.ontology.scope_question or {}).get("when-スコープ", "判定保留")
 
 
 def pending_decisions(wiki, meeting_id=None):
-    """顧客に範囲を聞くべき決定。`ontology.yaml` の条件をそのまま当てる。"""
+    """顧客にスコープを聞くべき決定。`ontology.yaml` の条件をそのまま当てる。"""
     want_scope = pending_scope(wiki)
     return [c for c in _askable_decisions(wiki, meeting_id)
-            if c.get("範囲") == want_scope]
+            if c.get("スコープ") == want_scope]
 
 
 TITLE_SLOT = "{headline}"
@@ -72,7 +72,7 @@ TITLE_SLOT = "{headline}"
 
 def question_title(wiki, decision):
     template = (wiki.ontology.scope_question or {}).get(
-        "title-template", "%sは当初合意範囲内か" % TITLE_SLOT)
+        "title-template", "%sは当初スコープ内か" % TITLE_SLOT)
     return template.replace(TITLE_SLOT, decision.headline(wiki.ontology))
 
 
@@ -85,7 +85,7 @@ def plan(wiki, meeting_id=None):
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="kime scope-questions",
-        description="`範囲: 判定保留` の決定を、顧客に聞く問いとして一覧する（カードは作らない）")
+        description="`スコープ: 判定保留` の決定を、顧客に聞く問いとして一覧する（カードは作らない）")
     ap.add_argument("--meeting", default=None, help="会議 ID（既定: 全件）")
     ap.add_argument("--root", default=None)
     args = ap.parse_args(argv)
@@ -97,12 +97,12 @@ def main(argv=None):
 
     rows = plan(wiki, args.meeting)
     if not rows:
-        print("`範囲: 判定保留` で顧客に聞くべき決定は無い（%s）" % wiki.root)
+        print("`スコープ: 判定保留` で顧客に聞くべき決定は無い（%s）" % wiki.root)
         return 0
     for decision, title, to in rows:
         print("%s  %s（確認先: %s）" % (decision.id, title, to or "—"))
     print()
-    print("%d件。判定したら `kime update DEC-NNN --set 範囲=…` に書く（Q は立てない）。" % len(rows))
+    print("%d件。判定したら `kime update DEC-NNN --set スコープ=…` に書く（Q は立てない）。" % len(rows))
     return 0
 
 

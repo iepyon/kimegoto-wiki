@@ -264,7 +264,7 @@ class TrailingCommentOnParentTest(unittest.TestCase):
         self.assertEqual(got["参加役割"], ["顧客PM", "開発リーダ"])
 
     def test_コメント専用行が途中に挟まっても崩れない(self):
-        src = "範囲: 判定保留   # 当初合意内 | 範囲外(追加) | 判定保留\n" \
+        src = "スコープ: 判定保留   # 当初スコープ内 | スコープ外(追加) | 判定保留\n" \
               "                 # 判定保留 は自動で Q を起票する\n" \
               "確定日:\n"
-        self.assertEqual(parse(src), {"範囲": "判定保留", "確定日": ""})
+        self.assertEqual(parse(src), {"スコープ": "判定保留", "確定日": ""})

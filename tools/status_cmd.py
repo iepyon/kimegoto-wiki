@@ -114,14 +114,14 @@ class Status:
 
         pending = scope_cmd.pending_scope(w)
         decisions = [c for c in current if c.type == "DEC"]
-        n_scope = sum(1 for c in decisions if c.get("範囲") == pending)
+        n_scope = sum(1 for c in decisions if c.get("スコープ") == pending)
         n_guess = sum(1 for c in current if c.get("信頼度") == quotes.GUESS)
         n_why = sum(1 for c in decisions if not c.get("なぜ"))
         open_acts = [c for c in w.by_type("ACT") if c.error is None and agenda.is_open_action(c)]
         n_blank = sum(1 for c in open_acts if not c.get("担当") or not c.get("期限"))
         n_agd = len(self.agenda_items())
         left = n_scope + n_guess + n_why + n_blank + n_agd
-        self._row("確認②", "範囲の判定保留 %d / 推測 %d / なぜ未記入 %d / 担当・期限の空欄 %d / 開いた議題 %d"
+        self._row("確認②", "スコープの判定保留 %d / 推測 %d / なぜ未記入 %d / 担当・期限の空欄 %d / 開いた議題 %d"
                   % (n_scope, n_guess, n_why, n_blank, n_agd),
                   "確認②を進める（/review）— 該当 %d件。人が判定する" % left if left
                   else "確認②で見るものは無い。議事録を出す（/minutes）")
