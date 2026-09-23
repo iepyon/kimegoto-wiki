@@ -19,7 +19,7 @@ import datetime
 import re
 import sys
 
-from tools import agenda, schema
+from tools import agenda, schema, scope_cmd
 from tools.cards import Wiki, resolve_root
 
 HEADER = ("<!-- 生成物: gen_views.py %s による機械生成。手編集禁止。"
@@ -180,10 +180,9 @@ def _open_agenda(ctx):
 
 def _pending_scope(ctx):
     """受託開発では最優先で見る欄。ここで無理に判定すると追加請求の根拠を失う。"""
-    rows = [[c.id, ctx.head(c), c.get("種別"), c.get("決定日")]
-            for c in sorted(ctx.of("DEC"), key=lambda c: c.id)
-            if c.get("範囲") == "判定保留"]
-    return _table(["ID", "決定", "種別", "決定日"], rows), len(rows)
+    rows = [[c.id, title, c.get("種別"), to or "—", c.get("決定日")]
+            for c, title, to in scope_cmd.plan(ctx.wiki)]
+    return _table(["ID", "問い", "種別", "確認先", "決定日"], rows), len(rows)
 
 
 def _guessed(ctx):
@@ -269,6 +268,8 @@ def view_agenda_next(ctx):
     for i, section in enumerate(agenda.select(ctx.wiki)):
         if section.key == "why-missing":
             body, n = _why_missing(ctx)
+        elif section.key == "scope-pending":
+            body, n = _pending_scope(ctx)
         elif section.key == "open-actions":
             body, n = _open_actions(ctx)
         elif section.key == "agenda-items":

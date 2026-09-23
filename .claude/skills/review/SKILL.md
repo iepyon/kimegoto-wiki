@@ -24,14 +24,14 @@ description: 会議当日の確認②（25分）を進行し、制約・前提�
    （指定が無ければ最新の会議。`kime status` の「確認②」の行が該当件数）
 2. 出力の 2-0 → 2-3 の順に、**該当するカードだけ**を人間に提示する
 3. 各項目は `AskUserQuestion` で聞き、**返ってきた言葉をそのまま**書き込む。
-   2-0 で `範囲` を書いたら `python3 tools/kime.py scope-questions --meeting MTG-YYYYMMDD --write`
-   を回す（判定済みの決定の範囲の問いを機械が閉じる。自分で Q を直さない）
+   2-0 の判定は決定の `範囲` に書く（`kime update DEC-NNN --set 範囲=…`）。Q は立てない・閉じない
+   （`判定保留` のあいだ「範囲の確認」として射影されているだけなので、書けば消える）
 4. 2-3 が終わったら `python3 tools/kime.py promote-input --meeting MTG-YYYYMMDD` を回し、
    下記に従って候補を挙げ、`meetings/MTG-YYYYMMDD/promote-candidates.yaml` に書き出す
 5. 2-4 で候補を yes/no で承認してもらい、**承認されたものだけ**を
    `constraints/` `assumptions/` `terms/` にカードとして作る
 6. 2-5 でこの会議の議題が決着したかを聞き、返ってきた判定だけを
-   `kime update AGD-NNN --set status=…` で書く
+   `kime update AGD-NNN --set status=… --set 決着日=<会議日>` で書く（閉じた日を残す）
 7. `python3 tools/kime.py lint` で error 0 を確認する
 
 順序は **2-2（なぜ）→ promote-input → 2-4（承認）**。ここを崩さない。

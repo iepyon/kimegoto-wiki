@@ -125,7 +125,7 @@ python3 tools/kime.py new agenda --title "検索結果の画面にプレビュ�
 
 > 「MTG-20260925 を取り込んで」「文字起こしを置いたので処理して」
 
-`/ingest` が Pass 1 → 議題の書き戻し → Pass 2 → Pass 3 → 範囲の問い → 引用の照合 → lint
+`/ingest` が Pass 1 → 議題の書き戻し → Pass 2 → Pass 3 → 引用の照合 → lint
 を一続きで進める。**人が手を入れるのは Pass 1 の直後の粒度の確認だけ。** それ以外で
 止まるのは、各パスの判定基準が「人に聞く」としている箇所（会議の場で出た議題を起票するか、
 未登録の役割）に当たったとき。終わると `kime status` を出して、確認②に何件あるかを伝える。
@@ -206,7 +206,6 @@ segments:
   発言に出たときだけ
 
 ```sh
-python3 tools/kime.py scope-questions --meeting MTG-20260925 --write  # 範囲の問いを定型で起票
 python3 tools/kime.py verify-quotes --fix   # 引用を LOG と照合し、不一致は「推測」に降格
 python3 tools/kime.py lint                  # error 0 を確認
 python3 tools/kime.py status                # どこまで済んだか。残りがあれば「次にやること」に出る
@@ -237,7 +236,7 @@ ACT-014「図面PDF対応の追加見積を提示する」
 | 2-2 | DEC の `なぜ` を1行書く／却下理由を埋められるなら埋める | 8分 |
 | 2-3 | ACT の担当・期限を入れる／前回の ACT の状態を更新 | 4分 |
 | 2-4 | 制約・前提・用語への昇格候補を yes/no で承認（Pass 4） | 6分 |
-| 2-5 | 議題の締め（決着／継続。`決着候補` の目安は見せるだけで、決めるのは人） | 2分 |
+| 2-5 | 議題の締め（決着／継続。`決着候補` の目安は見せるだけで、決めるのは人。閉じたら `決着日` に会議日） | 2分 |
 
 ```sh
 python3 tools/kime.py review                          # 最新の会議。該当するカードだけを上の順で並べる
@@ -288,7 +287,7 @@ ACT を GitHub Issue にしたいときは「ACT-014 を Issue にして」
 | `kime unknown-terms --meeting MTG-...` | ② 未知語の候補を拾う |
 | `kime new decision --title "..." --from-log LOG-... --role 顧客PM --write` | ③ カードを起こす（採番つき） |
 | `kime update <ID> --set k=v` | ③④ 既存カードを書き換える |
-| `kime scope-questions --meeting MTG-... --write` | ③ 範囲の問いを起票／④ 2-0 の判定後に閉じる |
+| `kime scope-questions [--meeting MTG-...]` | ④ 2-0 で顧客に聞く範囲の確認（`範囲: 判定保留` の決定の射影。カードは作らない） |
 | `kime verify-quotes --fix` | ③ 引用の照合と降格 |
 | `kime review --meeting MTG-...` | ④ 確認のチェックリスト |
 | `kime promote-input --meeting MTG-...` | ④ 昇格候補の材料 |
@@ -320,6 +319,7 @@ ACT を GitHub Issue にしたいときは「ACT-014 を Issue にして」
 | `docs/design.md` | 設計の根拠・期待値の較正・判定基準・既知の難所 |
 | `docs/backlog.md` | やらないと決めたことと、その理由 |
 | `docs/simplification-20260923.md` | 利用者の手順を4つに減らした記録 |
+| `docs/structure-20260923.md` | データ構造の見直し（範囲の確認を射影に・片方向リンク・議題の `決着日`） |
 | `research-notes.md` | 先行研究の調査（出典つき） |
 
 案件ディレクトリに `.fixture` を置くと教材として、`.wip` を置くと作りかけとして自動検査から外れる。

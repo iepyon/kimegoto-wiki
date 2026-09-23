@@ -97,13 +97,16 @@ types:
     headline: 正式
     has-quote: false
 
-# 機械が走査に使うものだけ。会議ディレクトリの中のファイル名（transcript.md /
-# segments.yaml / promote-candidates.yaml）は機械が評価しないので、ここには
-# 置かない。正本は templates/project/README.md と各スキル。
+# 機械が走査に使うものだけ。会議ディレクトリの中で機械が読むのは LOG と、
+# Pass 1 の出力（segments.yaml）と Pass 3 の欠落ガードの理由（extraction-notes.yaml）。
+# transcript.md / unknown-terms.yaml / promote-candidates.yaml は機械が評価しないので
+# ここには置かない。正本は templates/project/README.md と各スキル。
 meetings:
   id: "^MTG-\\d{8}$"
   dir: meetings
   logs-dir: logs
+  segments-file: segments.yaml
+  extraction-notes-file: extraction-notes.yaml
 
 # ------------------------------------------------------------
 # 語彙
@@ -157,6 +160,9 @@ fields:
     提起者:   { kind: text, required: true, 記入主体: 人間 }
     提起日:   { kind: date, required: true, 記入主体: 導出 }
     予定会議: { kind: str-list, required: false, 記入主体: 人間 }
+    # 閉じた日（決着・取り下げにした会議の日）。status だけだと「いつ閉じたか」が
+    # 記録に残らず、過去の会議の議事録で後の決着が映る（議題の履歴が引けない）。
+    決着日:   { kind: date, required: false, 記入主体: 人間 }
 
   DEC:
     id:         { kind: id, required: true, 記入主体: 自動 }
@@ -177,8 +183,6 @@ fields:
     受容した不利: { kind: text, required: false, 記入主体: 人間 }
     確認方法:   { kind: text, required: false, 記入主体: 人間 }
     作らない:   { kind: enum, enum: 作らない, free: true, required: false, 記入主体: 人間 }
-    前提:       { kind: ref-list, ref: ASM, required: false, 記入主体: 人間 }
-    制約:       { kind: ref-list, ref: CON, required: false, 記入主体: 人間 }
     superseded_by: { kind: ref, ref: DEC, required: false, 記入主体: 人間 }
     代替案:     { kind: struct-list, struct: 代替案, required: false, 記入主体: 自動 }
 
@@ -270,15 +274,17 @@ structs:
 
 # ------------------------------------------------------------
 # 型付きリンク
-#   inverse を持つものは双方向の一致を lint が見る。
+#   **リンクは片方向にしか書かない。** 議題と同じく、指す側を1つに決めて逆は引く
+#   （`wiki.constraints_of(dec)` / `wiki.assumptions_of(dec)`）。両方向に書くと食い違う。
+#   CON → DEC（影響する決定）と ASM → DEC（崩れたら見直す決定）はストック側が持つ。
+#   ストックは昇格の時点で「どの決定に効くか」を人が承認して書くので、そちらが正本。
+#   inverse を宣言した場合だけ、lint が双方向の一致を見る（いまは無い）。
 # ------------------------------------------------------------
 
 relations:
   derived_from:       { domain: [DEC, Q, ACT, CON, ASM], range: [LOG] }
-  前提:               { domain: [DEC], range: [ASM], inverse: 崩れたら見直す決定 }
-  崩れたら見直す決定: { domain: [ASM], range: [DEC], inverse: 前提 }
-  制約:               { domain: [DEC], range: [CON], inverse: 影響する決定 }
-  影響する決定:       { domain: [CON], range: [DEC], inverse: 制約 }
+  崩れたら見直す決定: { domain: [ASM], range: [DEC] }
+  影響する決定:       { domain: [CON], range: [DEC] }
   resolved_by:        { domain: [Q], range: [DEC] }
   superseded_by:      { domain: [DEC], range: [DEC] }
   関連:               { domain: [ACT], range: [DEC, Q, CON, ASM] }
@@ -377,7 +383,7 @@ editions:
       - { title: 前回アクションの結果, note: "ID・内容・担当・期限・状況の表" }
       - { title: 議題, note: "議題ごとに `### AGD-NNN タイトル`。この会議で扱ったか／扱えず・状態（決着・継続）・この会議の決定と未決。議題の文言を言い換えない" }
       - { title: 決定事項, note: "決定ごとに `### DEC-NNN タイトル`。決定の所在（種別）・なぜ・作らない・代替案の表（案／却下理由／根拠）・逐語引用を1つ" }
-      - { title: 未決事項, note: "ID・内容・確認先・初出の表。この会議で解決した問いは別に並べる" }
+      - { title: 未決事項, note: "ID・内容・確認先・初出の表。この会議で解決した問いは別に並べる。末尾に「範囲の確認」（`範囲: 判定保留` の決定・確認先）" }
       - { title: 今回のアクション, note: "ID・内容・担当・期限の表" }
       - { title: 新たに記録した制約・前提, note: "CON は（所在・硬度／失効条件）、ASM は（崩れたら見直す決定）を併記" }
       - { title: 議論の経緯, note: "LOG カード本文を `<details>` で畳む" }
@@ -405,8 +411,6 @@ editions:
       - 種類
       - 範囲
       - 会議体
-      - 前提
-      - 制約
       - superseded_by
       - resolved_by
       - 崩れたら見直す決定
@@ -435,7 +439,7 @@ editions:
       - { title: 前回アクションの結果, note: "内容・担当・期限・状況（ID は出さない）" }
       - { title: 議題, note: "議題ごとに `### タイトル`（ID なし）。決着したか、次回も続けるか。議題の文言を言い換えない" }
       - { title: 決定事項, note: "`### タイトル`（ID なし）。決定内容と合意した理由、「本件で検討し、採用しなかった方式」の表（案／採用しなかった理由）" }
-      - { title: 確認事項, note: "内容・確認先・期限" }
+      - { title: 確認事項, note: "内容・確認先・期限。範囲の確認（当初の合意に入っていたか）も並べる" }
       - { title: アクション, note: "内容・担当・期限" }
 
 # ------------------------------------------------------------
@@ -458,6 +462,7 @@ agenda:
   restate-similarity-percent: 80
   sections:
     - { key: why-missing, title: "`なぜ` が未記入の決定（冒頭で確認）", note: "書かないことに付けたコスト。埋まるまで制約・前提へ昇格できない" }
+    - { key: scope-pending, title: 範囲の確認（当初の合意に入っていたか）, note: "`範囲: 判定保留` の決定の射影。顧客側に聞く。判定したら決定の `範囲` に書く（Q は立てない）" }
     - { key: open-actions, title: 前回からの未完了アクション, note: "担当・期限・状態" }
     - { key: agenda-items, title: 議題, note: "議題ごとに `### タイトル`。提起者・持ち越しか・これまでの決定・未決の問い・未完了のアクション。議題の文言を言い換えない" }
     - { key: loose-questions, title: 議題に紐づかない未決の問い, note: "確認先ごと" }
@@ -491,13 +496,17 @@ signpost-vague-words: [注意, 監視, 確認する, 見ておく, 意識する,
 deferral-phrases: [前向きに検討, 持ち帰り, 持ち帰ります, 調整します, 一旦置い, 検討します]
 
 # ------------------------------------------------------------
-# 範囲が `判定保留` の決定に対して起票する定型の問い
-#   条件も題名も確認先も決定的なので LLM に書かせない。
-#   `kime scope-questions` が起票し、lint の `scope-pending-q` が保険として残る。
+# 範囲が `判定保留` の決定を、顧客に聞く問いとして射影する
+#   **カードにはしない。** `範囲: 判定保留` という DEC の状態そのものが「まだ聞いて
+#   いない」を表しているので、同じことを Q カードに写すと二重管理になる（閉じ忘れの
+#   lint、`resolved_by` の流用、題名の一致で元の決定を推定する照合、が全部要らなくなる）。
+#   `kime scope-questions` が一覧を出し、アジェンダの「範囲の確認」節と議事録の
+#   未決事項／確認事項に同じ写像で出る。2-0 で人が `範囲` を書けば、その時点で消える。
 #
+#   条件・題名・確認先は決定的なので LLM に書かせない。
 #   `種別: 技術判断` を外すのは、技術判断が範囲交渉の対象になるのが工数の増える
 #   ときだけで、その場合は発話の側に「見積に入っていない」が現れるから。
-#   相手に聞くことのない問いを起票すると、次回アジェンダが範囲判定で埋まり、
+#   相手に聞くことのない問いを出すと、次回アジェンダが範囲判定で埋まり、
 #   アジェンダそのものが読まれなくなる。
 # ------------------------------------------------------------
 

@@ -123,7 +123,7 @@ class ビュー(WikiTestCase):
         text = gen_views.render(self.wiki([LOG, agd("AGD-001", title="認証方式を決めたい"),
                                            ("Q", "Q-001", {"議題": "AGD-001"})]),
                                 "agenda-next", TODAY)
-        section = text.split("## 2. 議題\n")[1].split("\n## ")[0]
+        section = text.split("## 3. 議題\n")[1].split("\n## ")[0]
         self.assertIn("認証方式を決めたい", section)
         self.assertIn("Q-001", section)
 

@@ -55,7 +55,7 @@ class OpenItemsTest(ViewTestCase):
 
     def test_棚卸し対象は脆弱性高かつ逆リンクありのみ(self):
         text = self.render([LOG,
-                            ("DEC", "DEC-001", {"前提": ["ASM-001"]}),
+                            ("DEC", "DEC-001", {}),
                             ("ASM", "ASM-001", {"内容": "追跡する前提", "脆弱性": "高",
                                                 "崩れたら見直す決定": ["DEC-001"]}),
                             ("ASM", "ASM-002", {"内容": "追跡しない前提", "脆弱性": "低",

@@ -117,17 +117,6 @@ class 次にやること(WikiTestCase):
         self.assertIn("review_required", rows(s)["Pass 3 抽出"])
         self.assertNotIn("/extract", s.next_step)
 
-    def test_範囲の問いが未起票なら_scope_questions(self):
-        w = self.wiki([("LOG", "LOG-20260918-01", {}),
-                       ("LOG", "LOG-20260918-02", {"種別": "確認"}),
-                       ("DEC", "DEC-001", {"範囲": "判定保留"}),
-                       ("ACT", "ACT-001", {"derived_from": ["LOG-20260918-02"]})],
-                      segments={"MTG-20260918": SEGMENTS})
-        self._transcript(w)
-        s = Status(self.wiki_at(w.root), "MTG-20260918")
-        self.assertIn("未起票 1", rows(s)["範囲の問い"])
-        self.assertIn("scope-questions", s.next_step)
-
     def test_機械の段が全部通れば確認2へ(self):
         w = self.wiki([("LOG", "LOG-20260918-01", {}),
                        ("LOG", "LOG-20260918-02", {"種別": "確認"}),

@@ -36,10 +36,8 @@ description: 会議の文字起こしを取り込んで、LOG・決定・未決�
 3. **Pass 2** — `.claude/skills/log-cards/SKILL.md` のとおりに LOG と未知語リストを作る。
    未知語リストは見せるだけでよい（表記崩れの追記は確認②で）
 4. **Pass 3** — `.claude/skills/extract/SKILL.md` のとおりに、**必ず1論点ずつ**カードを起こす
-5. `python3 tools/kime.py scope-questions --meeting MTG-YYYYMMDD` で範囲の問いを見て、
-   内容を確認したうえで `--write`
-6. `python3 tools/kime.py verify-quotes --fix` → `python3 tools/kime.py lint` で error 0
-7. `python3 tools/kime.py status` をもう一度出して締める。表の「確認②」の行が、
+5. `python3 tools/kime.py verify-quotes --fix` → `python3 tools/kime.py lint` で error 0
+6. `python3 tools/kime.py status` をもう一度出して締める。表の「確認②」の行が、
    人が次に判定するものの数。**「確認②を始めて」と言えば `/review` が進行する**と伝える
 
 ## 途中で止まったとき

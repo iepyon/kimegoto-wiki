@@ -22,7 +22,7 @@ import json
 import re
 import sys
 
-from tools import agenda_sync_cmd, quotes, schema, scope_cmd
+from tools import agenda_sync_cmd, quotes, schema
 from tools.bundle import Bundle
 from tools.cards import Wiki, resolve_root
 
@@ -693,37 +693,6 @@ def check_promote_gate(ctx):
     return out
 
 
-@check("scope-pending-q", WARNING)
-def check_scope_pending_q(ctx):
-    """`範囲: 判定保留` の DEC には範囲の問いが立っているはず。
-
-    範囲の問いは `kime scope-questions` が定型の題名で起票するので、決定から
-    一意に引ける（題名の一致、縮めて書かれていれば接尾辞と LOG の一致）。
-    同じ LOG に別の未決 Q があるだけでは、範囲を誰にも聞いていないことに変わりない。
-
-    対象は `種別: 交渉可能` / `契約制約` に限る。技術判断の範囲を顧客に
-    問う Q は起票しない規約なので（`.claude/skills/extract/SKILL.md`）、
-    ここで鳴らすと消せない warning になる。
-    """
-    return [_p(check_scope_pending_q, c.id,
-               "`範囲: 判定保留` だが、範囲の問いが無い（`kime scope-questions --write` で起票する）")
-            for c, _, existing, _ in scope_cmd.plan(ctx.wiki)
-            if existing is None or existing.get("status") != "未決"]
-
-
-@check("scope-q-unclosed", WARNING)
-def check_scope_q_unclosed(ctx):
-    """範囲を判定したのに、その決定の範囲の問いが開いたまま。
-
-    確認② の 2-0 で `範囲` を書いたあと `kime scope-questions --write` を回せば
-    機械的に閉じる。開いたままだと、答えの出た問いが次回アジェンダに残る。
-    """
-    return [_p(check_scope_q_unclosed, question.id,
-               "%s の `範囲` は `%s` と判定済み（`kime scope-questions --write` で閉じる）"
-               % (decision.id, decision.get("範囲")))
-            for decision, question in scope_cmd.closable(ctx.wiki)]
-
-
 @check("asm-loadbearing", ERROR)
 def check_asm_loadbearing(ctx):
     """逆リンクの無い前提カードは飾りになる。"""
@@ -973,6 +942,20 @@ def check_agd_closed_open(ctx):
             out.append(_p(check_agd_closed_open, c.id,
                           "`決着` だが、下に閉じていないカードが残っている: %s" % " / ".join(rest)))
     return out
+
+
+@check("agd-closed-undated", WARNING)
+def check_agd_closed_undated(ctx):
+    """閉じた議題に `決着日` が無い。
+
+    status だけでは「いつ閉じたか」が記録に残らず、過去の会議の議事録で後の決着が
+    映る。閉じた会議の日を書く（確認② 2-5 の `kime update`）。
+    """
+    closed = set(ctx.o.agenda_closed_status())
+    return [_p(check_agd_closed_undated, c.id,
+               "`%s` だが `決着日` が空（閉じた会議の日を書く）" % c.get("status"))
+            for c in ctx.of_type("AGD")
+            if c.get("status") in closed and not c.get("決着日")]
 
 
 @check("agd-unsynced", WARNING)

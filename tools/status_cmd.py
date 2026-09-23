@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """`kime status` — いまどこにいて、次に何をするかを1枚で出す。
 
-会議1回分の処理は Pass 1 → 議題の書き戻し → Pass 2 → Pass 3 → 範囲の問い →
+会議1回分の処理は Pass 1 → 議題の書き戻し → Pass 2 → Pass 3 →
 引用の照合 → lint → 確認② → 議事録 と段が多い。どこまで済んだかはファイルの
 有無とカードの中身から一意に決まるので、人に覚えさせず機械が数える。
 「いまの会議」も同じ（最新の会議ディレクトリ）。スキルはこれを読んで `--meeting` を
@@ -95,15 +95,6 @@ class Status:
         else:
             tail = "（`review_required`: %s）" % " / ".join(waiting) if waiting else ""
             self._row("Pass 3 抽出", "%s。議論・確認の全論点にカードか理由あり%s" % (counts, tail))
-
-        if logs:
-            new = [r for r in scope_cmd.plan(w, m) if r[2] is None]
-            close = scope_cmd.closable(w, m)
-            if new or close:
-                self._row("範囲の問い", "未起票 %d / 閉じる %d" % (len(new), len(close)),
-                          "`kime scope-questions --meeting %s --write`" % m)
-            else:
-                self._row("範囲の問い", "差分なし")
 
         ids = {c.id for c in current}
         issues = [i for i in quotes.check(w) if i.card.id in ids]
