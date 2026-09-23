@@ -9,6 +9,7 @@ type: constraint
 影響する決定: []
 derived_from: []
 引用:
+信頼度:
 承認: YYYY-MM-DD
 status: 有効
 ---

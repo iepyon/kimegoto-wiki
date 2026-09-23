@@ -114,7 +114,8 @@ class Bundle:
         carried = [c for c in self.wiki.by_type("ACT")
                    if c.error is None
                    and c.get("status") not in ("完了", "取り下げ")
-                   and meeting_id not in self.wiki.meetings_of(c)]
+                   and meeting_id not in self.wiki.meetings_of(c)
+                   and self._born_by(c, meeting_id)]
 
         out = ["# 議事録の材料 — %s（%s版）" % (meeting_id, "顧客提出" if customer else "社内"), ""]
         out.append("この束は `kime minutes-input` が機械的に集めたもの。"
@@ -130,10 +131,25 @@ class Bundle:
             out.append("- 会議体: %s" % body)
         out.append("")
 
-        sections = [("決定事項", "DEC"), ("未決事項", "Q"), ("今回のアクション", "ACT"),
-                    ("新たに記録した制約", "CON"), ("新たに記録した前提", "ASM")]
-        for title, type_name in sections:
-            cards = [c for c in current if c.type == type_name]
+        def raised_here(card):
+            """この会議で起票したか（前の会議から続くカードの更新ではないか）。"""
+            seen = self.wiki.meetings_of(card)
+            return bool(seen) and seen[0] == meeting_id
+
+        closed_q = ("解決", "取り下げ")
+        sections = [
+            ("前回アクションの結果",
+             [c for c in current if c.type == "ACT" and not raised_here(c)]),
+            ("決定事項", [c for c in current if c.type == "DEC"]),
+            ("未決事項",
+             [c for c in current if c.type == "Q" and c.get("status") not in closed_q]),
+            ("この会議で解決した問い",
+             [c for c in current if c.type == "Q" and c.get("status") in closed_q]),
+            ("今回のアクション", [c for c in current if c.type == "ACT" and raised_here(c)]),
+            ("新たに記録した制約", [c for c in current if c.type == "CON"]),
+            ("新たに記録した前提", [c for c in current if c.type == "ASM"]),
+        ]
+        for title, cards in sections:
             if customer:
                 cards = [c for c in cards if not self._excluded(c, edition)]
             out.append("## %s" % title)
@@ -141,10 +157,13 @@ class Bundle:
             if not cards:
                 out.append(EMPTY)
                 out.append("")
-                continue
-            for card in sorted(cards, key=lambda c: c.id):
-                out.extend(self._render_card(card, edition, customer))
-            out.append("")
+            else:
+                for card in sorted(cards, key=lambda c: c.id):
+                    out.extend(self._render_card(card, edition, customer))
+                out.append("")
+            if title == "前回アクションの結果":
+                # 骨格（ontology.yaml の editions.<版>.sections）と同じ順に置く。
+                out.extend(self._agenda_section(meeting_id, current, edition, customer))
 
         out.append("## 前回からの繰越アクション")
         out.append("")
@@ -168,6 +187,59 @@ class Bundle:
 
         out.extend(self._footer(edition, customer))
         return "\n".join(out).rstrip() + "\n"
+
+    def _born_by(self, card, meeting_id):
+        """その会議までに起票されていたか。後の会議で生えたカードを過去の議事録に混ぜない。"""
+        seen = self.wiki.meetings_of(card)
+        return bool(seen) and seen[0] <= meeting_id
+
+    def _agenda_section(self, meeting_id, current, edition, customer):
+        """この会議の議題。扱ったか・いまの状態・この会議で生えた子を、議題ごとに。
+
+        議事録も議題の構造の射影にする。載るのは、この会議に予定していた（持ち越しで
+        載ったものを含む）・この会議で扱った・この会議の子を持つ、のどれかの議題。
+        閉じた議題も出す（この会議で決着したことが議事録から読めるように）。
+        """
+        rows = []
+        for card in sorted(self.wiki.by_type("AGD"), key=lambda c: c.id):
+            if card.error is not None:
+                continue
+            children = [c for c in self.wiki.children_of(card) if c in current]
+            discussed = meeting_id in self.wiki.discussed_in(card)
+            if not (discussed or children or meeting_id in card.list("予定会議")):
+                continue
+            rows.append((card, discussed, children))
+
+        out = ["## 議題", ""]
+        if not rows:
+            return out + [EMPTY, ""]
+        for card, discussed, children in rows:
+            title = self.head(card)
+            out.append("### %s" % (title if customer else "%s %s" % (card.id, title)))
+            out.append("")
+            raiser = card.get("提起者")
+            if raiser:
+                out.append("- 提起者: %s" % (self.company_of(raiser) if customer else raiser))
+            out.append("- この会議で: %s" % ("扱った" if discussed else "扱えず"))
+            # カードはいまの状態しか持たない。過去の会議の材料では後の決着も映る。
+            out.append("- いまの状態: %s" % (card.get("status") or "—"))
+            groups = [("決定", [c for c in children if c.type == "DEC"]),
+                      ("未決の問い", [c for c in self.wiki.children_of(card)
+                                     if c.type == "Q" and c.get("status") == "未決"
+                                     and self._born_by(c, meeting_id)]),
+                      ("この会議で解決した問い",
+                       [c for c in children if c.type == "Q" and c.get("status") != "未決"]),
+                      ("アクション", [c for c in children if c.type == "ACT"])]
+            for label, cards in groups:
+                if customer:
+                    cards = [c for c in cards if not self._excluded(c, edition)]
+                if not cards:
+                    continue
+                out.append("- %s: %s" % (label, " / ".join(
+                    self.head(c) if customer else "%s %s" % (c.id, self.head(c))
+                    for c in sorted(cards, key=lambda c: c.id))))
+            out.append("")
+        return out
 
     def _render_card(self, card, edition, customer, level=3, skip=()):
         out = []
@@ -379,6 +451,29 @@ class Bundle:
                 if isinstance(row, dict)
                 and (row.get("却下理由") or "").strip() not in ("", "記録なし")]
 
+    @staticmethod
+    def recorded_why(card):
+        """`なぜ` が実際に記録されているか。`記録なし` と空は数えない（却下理由と同じ扱い）。"""
+        return (card.get("なぜ") or "").strip() not in ("", "記録なし")
+
+    @staticmethod
+    def contract_decision(card):
+        """契約制約の決定で、引用が照合済みのもの。
+
+        契約・法務・コンプライアンスの決定は、決定そのものが「自社の作業では動かせない
+        環境の性質」を述べていることが多い（「スキャン保存にはタイムスタンプを必須に
+        してください」）。理由が語られなくても、発言した役割と引用が残っているので
+        将来の議論で辿れる。`信頼度: 推測` は照合できていないので通さない。
+        """
+        return (card.get("種別") == "契約制約" and bool(card.get("引用"))
+                and card.get("信頼度") != "推測")
+
+    @classmethod
+    def passes_gate(cls, card):
+        """昇格の門。lint の `promote-gate` も同じ判定を使う（二重に持つとずれる）。"""
+        return (cls.recorded_why(card) or bool(cls._recorded_reasons(card))
+                or cls.contract_decision(card))
+
     def promote_input(self, meeting_id):
         """昇格候補を出すための材料。
 
@@ -390,14 +485,16 @@ class Bundle:
         CON の中身は「採った案の理由（`なぜ`）」ではなく「捨てた案の理由
         （`却下理由`）」なので、`なぜ` だけで閉じると、逐語で却下理由が取れている
         制約まで落ちてしまう（`decision-guide.md` も両者を別物と定めている）。
+        どちらも `記録なし` は記録として数えない（数えると、確認②で「記録なし」と
+        答えたか空欄のままにしたかで門の開閉が変わる）。
+
+        例外は契約制約の決定（`contract_decision`）。決定の引用そのものを材料に出す。
         """
         if meeting_id not in self.wiki.meetings:
             raise KeyError("会議 %s が無い" % meeting_id)
         decisions = [c for c in self.wiki.cards_of_meeting(meeting_id, "DEC")]
-        passed = [c for c in decisions
-                  if c.get("なぜ") or self._recorded_reasons(c)]
-        blocked = [c for c in decisions
-                   if not c.get("なぜ") and not self._recorded_reasons(c)]
+        passed = [c for c in decisions if self.passes_gate(c)]
+        blocked = [c for c in decisions if not self.passes_gate(c)]
         logs = sorted(self.wiki.logs_of(meeting_id), key=lambda c: c.id)
         terms = sorted(self.wiki.by_type("TERM"), key=lambda c: c.id)
 
@@ -413,6 +510,9 @@ class Bundle:
                 out.append("### %s %s" % (c.id, self.head(c)))
                 out.append("")
                 out.append("- なぜ: %s" % (c.get("なぜ") or "（未記入）"))
+                if self.contract_decision(c):
+                    out.append("- 契約制約の決定（%s）: %s（%s）"
+                               % (c.get("決定の所在") or "—", c.get("引用"), c.get("信頼度")))
                 if c.get("受容した不利"):
                     out.append("- 受容した不利: %s" % c.get("受容した不利"))
                 out.append("- derived_from: %s" % " / ".join(c.list("derived_from")))
@@ -473,8 +573,8 @@ class Bundle:
         out.append("## 昇格の門で落とした決定（%d件）" % len(blocked))
         out.append("")
         if blocked:
-            out.append("`なぜ` も `代替案[].却下理由` も記録されていないため、"
-                       "この材料には含めていない。"
+            out.append("`なぜ` も `代替案[].却下理由` も記録されていないため"
+                       "（`記録なし` は記録として数えない）、この材料には含めていない。"
                        "理由が書かれるまで制約・前提へ昇格できない。")
             out.append("")
             for c in sorted(blocked, key=lambda c: c.id):
@@ -509,7 +609,9 @@ class Bundle:
 
         out += self._step("2-0", "`範囲: 判定保留` の決定", "3分",
                           "受託開発では最優先。他を飛ばしてもここは見る。"
-                          "無理に判定すると追加請求の根拠を失う。",
+                          "無理に判定すると追加請求の根拠を失う。"
+                          "判定を書いたら `kime scope-questions --meeting %s --write` で"
+                          "範囲の問いを閉じる。" % meeting_id,
                           [["ID", "決定", "種別", "決定日"]] +
                           [[c.id, self.head(c), c.get("種別"), c.get("決定日")] for c in pending])
 

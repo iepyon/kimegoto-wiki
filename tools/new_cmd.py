@@ -70,6 +70,10 @@ def new_card(wiki, type_name, meeting=None, title=None, index=None,
 
     fields, notes = derived_fields(wiki, type_name, role=role, log=log,
                                    meeting=meeting or "", kind=kind, today=today)
+    # 更新履歴の起票日は会議日で一意に決まる（トップレベルの欄ではないので別に書く）。
+    date = wiki.meetings[meeting].date if meeting in wiki.meetings else ""
+    if date:
+        text = text.replace("  - YYYY-MM-DD: 起票", "  - %s: 起票" % date)
     for name, value in fields.items():
         try:
             text = apply_updates(text, sets=[(name, value)])

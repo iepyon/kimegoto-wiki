@@ -118,6 +118,63 @@ class MinutesInputTest(BundleTestCase):
         text = self.bundle(cards).minutes_input("MTG-20261002", "internal")
         self.assertNotIn("済んだ宿題", text)
 
+    def _section(self, text, title):
+        """`## title` から次の `## ` までの本文。"""
+        body = text.split("## %s\n" % title, 1)[1]
+        return body.split("\n## ", 1)[0]
+
+    def test_前回のアクションの完了は今回のアクションに混ぜない(self):
+        # 前回起票した ACT を今回完了にすると、今回の LOG が derived_from に足される。
+        # それでも「今回のアクション」ではなく「前回アクションの結果」に出す。
+        cards = [LOG, ("LOG", "LOG-20261002-01", {"meeting": "MTG-20261002"}),
+                 ("ACT", "ACT-001", {"status": "完了", "title": "前回の宿題",
+                                     "derived_from": ["LOG-20260918-01", "LOG-20261002-01"]}),
+                 ("ACT", "ACT-002", {"title": "今回の宿題",
+                                     "derived_from": ["LOG-20261002-01"]})]
+        text = self.bundle(cards).minutes_input("MTG-20261002", "internal")
+        self.assertIn("前回の宿題", self._section(text, "前回アクションの結果"))
+        self.assertNotIn("前回の宿題", self._section(text, "今回のアクション"))
+        self.assertIn("今回の宿題", self._section(text, "今回のアクション"))
+
+    def test_解決した問いは未決事項に並べない(self):
+        cards = [LOG, ("DEC", "DEC-001", {}),
+                 ("Q", "Q-001", {"title": "解けた問い", "status": "解決",
+                                 "resolved_by": "DEC-001"}),
+                 ("Q", "Q-002", {"title": "残る問い"})]
+        text = self.bundle(cards).minutes_input(MTG, "internal")
+        self.assertNotIn("解けた問い", self._section(text, "未決事項"))
+        self.assertIn("解けた問い", self._section(text, "この会議で解決した問い"))
+        self.assertIn("残る問い", self._section(text, "未決事項"))
+
+    def test_議題の節に扱ったか扱えずかと状態を出す(self):
+        segments = {MTG: ("meeting: %s\nsegments:\n  - seq: 1\n    title: 論点\n"
+                          "    種別: 議論\n    議題: AGD-001\n" % MTG)}
+        cards = [LOG,
+                 ("AGD", "AGD-001", {"title": "甲を決めたい", "status": "決着",
+                                     "予定会議": [MTG]}),
+                 ("AGD", "AGD-002", {"title": "乙を決めたい", "status": "継続",
+                                     "予定会議": [MTG]}),
+                 ("DEC", "DEC-001", {"title": "甲にする", "議題": "AGD-001"})]
+        w = self.wiki(cards, segments=segments)
+        internal = self._section(Bundle(w).minutes_input(MTG, "internal"), "議題")
+        self.assertIn("### AGD-001 甲を決めたい", internal)
+        self.assertIn("- この会議で: 扱った", internal)
+        self.assertIn("- いまの状態: 決着", internal)
+        self.assertIn("- 決定: DEC-001 甲にする", internal)
+        self.assertIn("### AGD-002 乙を決めたい", internal)
+        self.assertIn("- この会議で: 扱えず", internal)
+        customer = self._section(Bundle(w).minutes_input(MTG, "customer"), "議題")
+        self.assertIn("### 甲を決めたい", customer)
+        self.assertNotIn("AGD-", customer)
+        self.assertNotIn("DEC-", customer)
+
+    def test_後の会議で起票したアクションを繰り越さない(self):
+        cards = [LOG, ("LOG", "LOG-20261002-01", {"meeting": "MTG-20261002"}),
+                 ("ACT", "ACT-001", {"title": "後で生えた宿題",
+                                     "derived_from": ["LOG-20261002-01"]})]
+        text = self.bundle(cards).minutes_input(MTG, "internal")
+        self.assertNotIn("後で生えた宿題", text)
+
     def test_存在しない会議は例外(self):
         with self.assertRaises(KeyError):
             self.bundle([LOG]).minutes_input("MTG-20991231")
@@ -153,6 +210,29 @@ class PromoteInputTest(BundleTestCase):
         self.assertIn("外部SaaSを使わない", head)
         self.assertIn("社外にデータを出せない", head)
         self.assertIn("昇格の門で落とした決定（0件）", text)
+
+    def test_なぜが記録なしだけなら材料に入らない(self):
+        # 「記録なし」と答えたか空欄のままにしたかで、門の開閉が変わってはいけない。
+        text = self.bundle([LOG, ("DEC", "DEC-001", {
+            "title": "理由のない決定", "なぜ": "記録なし"})]).promote_input(MTG)
+        self.assertIn("昇格の門で落とした決定（1件）", text)
+        self.assertIn("理由のない決定", text.split("昇格の門で落とした")[1])
+
+    def test_契約制約の決定は理由が無くても引用を材料に出す(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {
+            "title": "スキャン保存にはタイムスタンプを必須にする", "なぜ": "",
+            "種別": "契約制約", "決定の所在": "顧客法務",
+            "引用": "じゃあそれでいきましょう"})]).promote_input(MTG)
+        head = text.split("昇格の門で落とした")[0]
+        self.assertIn("スキャン保存にはタイムスタンプを必須にする", head)
+        self.assertIn("契約制約の決定（顧客法務）: じゃあそれでいきましょう", head)
+        self.assertIn("昇格の門で落とした決定（0件）", text)
+
+    def test_推測の契約制約は通さない(self):
+        text = self.bundle([LOG, ("DEC", "DEC-001", {
+            "title": "照合できない決定", "なぜ": "", "種別": "契約制約",
+            "信頼度": "推測"})]).promote_input(MTG)
+        self.assertIn("昇格の門で落とした決定（1件）", text)
 
     def test_却下理由が記録なしだけなら材料に入らない(self):
         text = self.bundle([LOG, ("DEC", "DEC-001", {
@@ -212,9 +292,9 @@ class ReviewTest(BundleTestCase):
 class 議事録の骨格(BundleTestCase):
     """節構成の正本は ontology.yaml。スキルの散文に持たせない。"""
 
-    def test_社内版は7節を出す(self):
+    def test_社内版は8節を出す(self):
         text = self.bundle([LOG]).minutes_input(MTG)
-        for title in ("前回アクションの結果", "決定事項", "未決事項", "今回のアクション",
+        for title in ("前回アクションの結果", "議題", "決定事項", "未決事項", "今回のアクション",
                       "新たに記録した制約・前提", "議論の経緯", "記録の状態"):
             self.assertIn("**%s**" % title, text)
 
@@ -227,7 +307,8 @@ class 議事録の骨格(BundleTestCase):
     def test_骨格は順番つきで出る(self):
         text = self.bundle([LOG]).minutes_input(MTG, "customer")
         self.assertIn("1. **前回アクションの結果**", text)
-        self.assertIn("4. **アクション**", text)
+        self.assertIn("2. **議題**", text)
+        self.assertIn("5. **アクション**", text)
 
 
 class 前提のトリガー語(BundleTestCase):

@@ -224,6 +224,7 @@ fields:
     影響する決定: { kind: ref-list, ref: DEC, required: false, 記入主体: 自動 }
     derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動 }
     引用:       { kind: quote, required: false, 記入主体: 自動 }
+    信頼度:     { kind: enum, enum: 信頼度, required: false, 記入主体: 自動 }
     承認:       { kind: date, required: true, 記入主体: 人間 }
     status:     { kind: enum, enum: ストック状態, required: true, 記入主体: 人間 }
 
@@ -374,8 +375,9 @@ editions:
     # スキルに散文で持たせると、版を足したときに必ず片方が古くなる。
     sections:
       - { title: 前回アクションの結果, note: "ID・内容・担当・期限・状況の表" }
+      - { title: 議題, note: "議題ごとに `### AGD-NNN タイトル`。この会議で扱ったか／扱えず・状態（決着・継続）・この会議の決定と未決。議題の文言を言い換えない" }
       - { title: 決定事項, note: "決定ごとに `### DEC-NNN タイトル`。決定の所在（種別）・なぜ・作らない・代替案の表（案／却下理由／根拠）・逐語引用を1つ" }
-      - { title: 未決事項, note: "ID・内容・確認先・初出の表" }
+      - { title: 未決事項, note: "ID・内容・確認先・初出の表。この会議で解決した問いは別に並べる" }
       - { title: 今回のアクション, note: "ID・内容・担当・期限の表" }
       - { title: 新たに記録した制約・前提, note: "CON は（所在・硬度／失効条件）、ASM は（崩れたら見直す決定）を併記" }
       - { title: 議論の経緯, note: "LOG カード本文を `<details>` で畳む" }
@@ -431,6 +433,7 @@ editions:
     deemed-confirmation: true
     sections:
       - { title: 前回アクションの結果, note: "内容・担当・期限・状況（ID は出さない）" }
+      - { title: 議題, note: "議題ごとに `### タイトル`（ID なし）。決着したか、次回も続けるか。議題の文言を言い換えない" }
       - { title: 決定事項, note: "`### タイトル`（ID なし）。決定内容と合意した理由、「本件で検討し、採用しなかった方式」の表（案／採用しなかった理由）" }
       - { title: 確認事項, note: "内容・確認先・期限" }
       - { title: アクション, note: "内容・担当・期限" }

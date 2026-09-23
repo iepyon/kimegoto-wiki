@@ -124,7 +124,7 @@ Pass 4（昇格）は独立したスキルではなく `review` の後半にあ�
 | `kime views` | 横断ビュー・次回アジェンダ・指標の生成 |
 | `kime agenda` | 次回アジェンダ（ビュー）を標準出力へ |
 | `kime agenda-input [--meeting MTG-...]` | 次回アジェンダの材料（議題ごとに決定・未決・アクションを束ねる。会議は未作成でよい） |
-| `kime agenda-sync --meeting MTG-... [--write]` | 論点に付いた議題を、議題カードの `status` と `予定会議` に書き戻す |
+| `kime agenda-sync --meeting MTG-... [--write]` | 論点に付いた議題を、議題カードの `status` と `予定会議` に書き戻す。持ち越しで載った会議も `予定会議` に足す |
 | `kime review --meeting MTG-...` | 確認②の25分のチェックリスト |
 | `kime minutes-input --meeting MTG-... [--edition customer]` | 議事録の材料（顧客版の除外は機械が行う） |
 | `kime promote-input --meeting MTG-...` | 昇格候補の材料（**`なぜ` 未記入の決定を落とす**） |
