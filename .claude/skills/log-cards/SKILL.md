@@ -13,6 +13,7 @@ description: 論点ごとに LOG カードを生成する（Pass 2）。「LOG �
 ## 手順
 
 1. `meetings/MTG-YYYYMMDD/segments.yaml` と `transcript.md` を読む
+   （会議の指定が無ければ `python3 tools/kime.py status --id` のいまの会議）
 2. `terms/*.md` の `正式` と `表記揺れ` を全部読む（正規化に使う）
 3. `python3 tools/kime.py new log --meeting MTG-YYYYMMDD` で ID を採番する
 4. `meetings/MTG-YYYYMMDD/logs/LOG-YYYYMMDD-NN.md` に書き出す

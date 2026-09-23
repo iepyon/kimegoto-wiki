@@ -109,6 +109,9 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
    **機械が書き、lint は保険として残す**（逆にすると、食い違いを直すのが人間の仕事になる）。
 6. **非対話実行では、機械的に定まるものだけを反映してよい。**
    解釈を要するもの（`なぜ`、却下理由、昇格の可否、`範囲` の判定）は必ず対話で確認する。
+7. **順序は束ね役に、判定基準はパスのスキルに。** `ingest` は Pass 1〜3 の順序と止まる
+   場所だけを持ち、判定基準を写さない。各パスのスキルは順序を持たない。
+   どこまで済んだか・いまの会議は `kime status` が数える。人にもスキルにも覚えさせない。
 
 ---
 
@@ -117,6 +120,7 @@ LOG を直せるなら「カードに合うように記録のほうを変える�
 ```bash
 sh tools/setup.sh [案件名]                     # 初回。門を立てて一度通す
 python3 tools/kime.py                          # サブコマンド一覧
+python3 tools/kime.py status                   # いまの会議・どこまで済んだか・次にやること
 python3 tools/kime.py lint                     # 整合性検査（error 0 が不変条件）
 python3 tools/kime.py verify-quotes --fix      # 引用不一致を「推測」に降格
 python3 tools/kime.py scope-questions --meeting MTG-... [--write]  # 範囲の問いを定型で起票・判定済みなら閉じる
@@ -136,6 +140,7 @@ python3 -m unittest discover -s tests
 ```
 
 対象の案件は `.env` の `CURRENT_PROJECT`、または `--root` で指定する。
+`--meeting` を省いた会議単位のコマンドは最新の会議（`kime status --id`）を見る。
 
 ---
 

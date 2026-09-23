@@ -24,7 +24,9 @@ description: LOG カードから決定事項・未決事項・アクションを
 
 ## 手順
 
-1. `python3 tools/kime.py lint --check log-format --root <案件>` で LOG の形式を確認
+1. `python3 tools/kime.py status` で対象の会議と、抽出が残っている論点を見る
+   （会議の指定が無ければいまの会議。途中からなら「残り」の論点だけをやる）。
+   `python3 tools/kime.py lint --check log-format` で LOG の形式を確認
 2. `種別` が `報告` / `雑談` なら **DEC は抽出しない**（ACT と Q のみ）。
    ただし決定権のある役割の結論の表明（「そのあたりは任せます」など）が現れたら、
    **Q として拾う**（下の「報告・雑談での取りこぼし」）

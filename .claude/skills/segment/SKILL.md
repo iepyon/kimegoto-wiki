@@ -13,8 +13,8 @@ description: 会議の文字起こしを論点単位に切り出す（Pass 1）�
 
 ## 手順
 
-1. 対象の会議を決める。無ければ `projects/<slug>/meetings/MTG-YYYYMMDD/` を作り、
-   `transcript.md` を置いてもらう
+1. 対象の会議を決める。指定が無ければ `python3 tools/kime.py status --id`（いまの会議）。
+   文字起こしが無ければ `projects/<slug>/meetings/MTG-YYYYMMDD/transcript.md` を置いてもらう
 2. `role-mapping.yaml` を読む（役割ラベルの表記を合わせるため）
 3. `python3 tools/kime.py agenda-input --meeting MTG-YYYYMMDD` の「議題」節で、
    この会議に載っていた議題（AGD）の ID と文言を見る

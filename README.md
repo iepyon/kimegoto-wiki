@@ -18,16 +18,21 @@
 
 ![1サイクルの流れ: ① アジェンダ → 会議 → ② 取り込む → ③ 抽出する → ④ 人が確認する → ⑤ 議事録。開いた議題が次回の ① に戻る](docs/images/cycle.svg)
 
-| | 頼み方の例 |
-|---|---|
-| ① 会議の前 | 「次回のアジェンダを出して」「次の会議でこれを決めたい」 |
-| ② 会議の後 | transcript.md を置いて「文字起こしを論点に分けて」「LOG を作って」 |
-| ③ 記録 | 「決定事項を抽出して」 |
-| ④ 確認 | 「25分の確認を始めて」 |
-| ⑤ 出力 | 「議事録を出して」 |
+利用者が覚える頼み方は**4つ**。会議 ID や段の順番は道具が知っている。
 
-Claude Code に話し言葉で頼めば、対応するスキル（`.claude/skills/`）が動く。
-スキルを直接呼ぶなら `/segment` `/log-cards` `/extract` `/review` `/minutes` `/lint` `/issue`。
+| | 頼み方 | 動くスキル | 人がやること |
+|---|---|---|---|
+| ① 会議の前 | 「次回のアジェンダを出して」「次の会議でこれを決めたい」 | `/agenda` | 読む。決めたいことを言う |
+| ②③ 会議の後 | transcript.md を置いて「会議を取り込んで」 | `/ingest`（Pass 1〜3 を一続きで） | **論点の粒度を一度確認する**だけ |
+| ④ 確認 | 「確認を始めて」 | `/review`（25分） | `なぜ`・担当・期限・範囲・議題の締めを**判定**する |
+| ⑤ 出力 | 「議事録を出して」 | `/minutes` | 読んで送る |
+
+迷ったら「今どこ？」— `python3 tools/kime.py status` が、いまの会議・どこまで済んだか・
+次にやることを1枚で出す。途中で切れても、ここから再開できる。
+
+`/ingest` は各パスのスキル（`/segment` `/log-cards` `/extract`）を順に呼ぶ束ね役で、
+判定基準はそれぞれのスキルにしか無い。パスを1つだけ回したいときは直接呼ぶ。
+他に `/lint`（整合性の点検）と `/issue`（ACT を GitHub Issue に）。
 
 以下の例は、同梱のデモ案件 `projects/demo-kb`（5回分の会議を記録済み）を使う。
 
@@ -66,7 +71,8 @@ sh tools/setup.sh <案件名>
 ![議題が親、DEC・Q・ACT が子。子が「議題」で親を指し、議題は予定会議のアジェンダに載る](docs/images/agenda-structure.svg)
 
 ```sh
-python3 tools/kime.py agenda-input --meeting MTG-20260925   # 次の会議。まだ無くてよい
+python3 tools/kime.py agenda-input                          # 次回。会議 ID は要らない
+python3 tools/kime.py agenda-input --meeting MTG-20260925   # その会議として出したいとき。まだ無くてよい
 ```
 
 議題ごとに次の形で出る（例）。
@@ -92,11 +98,12 @@ python3 tools/kime.py agenda-input --meeting MTG-20260925   # 次の会議。ま
 ### 決めたいことが出たら、議題を起票する
 
 会議の前でも、会議の冒頭でも同じ。**アジェンダに書き足さずに議題を起票する**
-（書き足すと射影でなくなり、次回に残らない）。
+（書き足すと射影でなくなり、次回に残らない）。「次の会議でこれを決めたい」と言えば、
+`/agenda` が**文言と提起者だけ**を聞いて起票する。
 
 ```sh
 python3 tools/kime.py new agenda --title "検索結果の画面にプレビューを出すかを決めたい" \
-    --role 顧客PM --meeting MTG-20260925 --write
+    --role 顧客PM --write                    # 予定会議が空なら次回に載る。会議が決まっていれば --meeting
 ```
 
 文言は提起者の言葉のまま。起票すれば次の `agenda-input` に載り、会議の後は Pass 1 で
@@ -114,7 +121,16 @@ python3 tools/kime.py new agenda --title "検索結果の画面にプレビュ�
 
 ---
 
-## ② 会議の後：文字起こしを取り込む
+## ②③ 会議の後：取り込む
+
+> 「MTG-20260925 を取り込んで」「文字起こしを置いたので処理して」
+
+`/ingest` が Pass 1 → 議題の書き戻し → Pass 2 → Pass 3 → 範囲の問い → 引用の照合 → lint
+を一続きで進める。**人が手を入れるのは Pass 1 の直後の粒度の確認だけ。** それ以外で
+止まるのは、各パスの判定基準が「人に聞く」としている箇所（会議の場で出た議題を起票するか、
+未登録の役割）に当たったとき。終わると `kime status` を出して、確認②に何件あるかを伝える。
+
+以下は、その中で何が起きているか。パスを1つだけ回したいときは、それぞれのスキルを直接呼ぶ。
 
 ### 置き場所と形式
 
@@ -138,9 +154,7 @@ python3 tools/kime.py new agenda --title "検索結果の画面にプレビュ�
 - **一度コミットした文字起こしと LOG は書き換えない。** すべての引用の照合先なので、
   PreToolUse フックが編集を止める
 
-### 論点に分ける（Pass 1）
-
-> 「MTG-20260925 の文字起こしを論点に分けて」
+### 論点に分ける（Pass 1 — `/segment`）
 
 `segments.yaml` ができる。論点の粒度を**人間がここで確認する**（10行ほどなので安く直せる）。
 
@@ -164,18 +178,12 @@ segments:
   python3 tools/kime.py agenda-sync --meeting MTG-20260925 --write
   ```
 
-### LOG にする（Pass 2）
-
-> 「LOG を作って」
+### LOG にする（Pass 2 — `/log-cards`）
 
 論点ごとに `logs/LOG-20260925-NN.md` ができる。発言は逐語のまま残し、言い換えない。
 あわせて、用語集に無い言葉を `unknown-terms.yaml` に拾う。
 
----
-
-## ③ 決定事項・未決事項・アクションを記録する（Pass 3）
-
-> 「MTG-20260925 の Pass 3 を回して」「決定事項を抽出して」
+### 決定事項・未決事項・アクションを記録する（Pass 3 — `/extract`）
 
 論点を**1つずつ**処理して、3種類のカードを起こす。
 
@@ -201,6 +209,7 @@ segments:
 python3 tools/kime.py scope-questions --meeting MTG-20260925 --write  # 範囲の問いを定型で起票
 python3 tools/kime.py verify-quotes --fix   # 引用を LOG と照合し、不一致は「推測」に降格
 python3 tools/kime.py lint                  # error 0 を確認
+python3 tools/kime.py status                # どこまで済んだか。残りがあれば「次にやること」に出る
 ```
 
 同じ DEC / Q / ACT が複数の会議に出てくるのは正常。新しいカードを作らず、既存のカードを更新する。
@@ -209,7 +218,7 @@ python3 tools/kime.py lint                  # error 0 を確認
 
 ## ④ 確認する：空欄を人間が埋める（25分）
 
-> 「25分の確認を始めて」「担当と期限を入れたい」
+> 「確認を始めて」「担当と期限を入れたい」
 
 **会議当日か翌日に固定する。** 2週間空けると却下理由は思い出せない。
 Claude が1件ずつ質問し、返ってきた言葉をそのままカードに書く。
@@ -231,7 +240,7 @@ ACT-014「図面PDF対応の追加見積を提示する」
 | 2-5 | 議題の締め（決着／継続。`決着候補` の目安は見せるだけで、決めるのは人） | 2分 |
 
 ```sh
-python3 tools/kime.py review --meeting MTG-20260925   # 該当するカードだけを上の順で並べる
+python3 tools/kime.py review                          # 最新の会議。該当するカードだけを上の順で並べる
 ```
 
 結論が出なかった議題は何もしない。開いたまま次回へ持ち越され、アジェンダに
@@ -250,8 +259,8 @@ python3 tools/kime.py review --meeting MTG-20260925   # 該当するカードだ
 > 「MTG-20260925 の議事録を出して」「顧客提出版がほしい」
 
 ```sh
-python3 tools/kime.py minutes-input --meeting MTG-20260925                       # 社内版の材料
-python3 tools/kime.py minutes-input --meeting MTG-20260925 --edition customer    # 顧客提出版の材料
+python3 tools/kime.py minutes-input                       # 社内版の材料（最新の会議）
+python3 tools/kime.py minutes-input --edition customer    # 顧客提出版の材料
 ```
 
 - 議事録はカードから作る生成物で、**ファイルには保存しない**。直すならカードを直して出し直す
@@ -267,10 +276,13 @@ ACT を GitHub Issue にしたいときは「ACT-014 を Issue にして」
 
 `kime` は `python3 tools/kime.py`。対象の案件は `.env` の `CURRENT_PROJECT`、または `--root` で指定する。
 
+`--meeting` を省くと最新の会議（`kime status` の「いまの会議」）。
+
 | コマンド | 使う場面 |
 |---|---|
+| `kime status` | いつでも。いまの会議・どこまで済んだか・次にやること |
 | `kime agenda-input [--meeting MTG-...]` | ① 次回アジェンダの材料 |
-| `kime new agenda --title "..." --role 顧客PM --meeting MTG-... --write` | ① 議題を起票する |
+| `kime new agenda --title "..." --role 顧客PM [--meeting MTG-...] --write` | ① 議題を起票する（会議は未定でよい） |
 | `kime agenda-sync --meeting MTG-... --write` | ② Pass 1 の後、扱った議題を書き戻す |
 | `kime agenda` | ① 次回アジェンダの一覧（ビュー） |
 | `kime unknown-terms --meeting MTG-...` | ② 未知語の候補を拾う |
@@ -303,10 +315,11 @@ ACT を GitHub Issue にしたいときは「ACT-014 を Issue にして」
 | `decision-guide.md` | 何を DEC とするかの判定ガイド。**最初に読む** |
 | `schema.md` | カード定義・ID 規約（フィールド表は `ontology.yaml` から生成） |
 | `templates/` | 案件とカードの雛形 |
-| `.claude/skills/` | 各パスの手順と判定基準 |
+| `.claude/skills/` | 各パスの手順と判定基準。`ingest` は束ね役で、順序と止まる場所だけを持つ |
 | `CLAUDE.md` | 3つの層と、絶対に守る3つのルール |
 | `docs/design.md` | 設計の根拠・期待値の較正・判定基準・既知の難所 |
 | `docs/backlog.md` | やらないと決めたことと、その理由 |
+| `docs/simplification-20260923.md` | 利用者の手順を4つに減らした記録 |
 | `research-notes.md` | 先行研究の調査（出典つき） |
 
 案件ディレクトリに `.fixture` を置くと教材として、`.wip` を置くと作りかけとして自動検査から外れる。

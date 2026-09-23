@@ -20,7 +20,8 @@ description: 会議当日の確認②（25分）を進行し、制約・前提�
 
 ## 手順
 
-1. `python3 tools/kime.py review --meeting MTG-YYYYMMDD` を実行する
+1. `python3 tools/kime.py review [--meeting MTG-YYYYMMDD]` を実行する
+   （指定が無ければ最新の会議。`kime status` の「確認②」の行が該当件数）
 2. 出力の 2-0 → 2-3 の順に、**該当するカードだけ**を人間に提示する
 3. 各項目は `AskUserQuestion` で聞き、**返ってきた言葉をそのまま**書き込む。
    2-0 で `範囲` を書いたら `python3 tools/kime.py scope-questions --meeting MTG-YYYYMMDD --write`

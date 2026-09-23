@@ -62,13 +62,14 @@ def _askable_decisions(wiki, meeting_id=None):
                   key=lambda c: c.id)
 
 
-def _pending_scope(wiki):
+def pending_scope(wiki):
+    """問いを立てる `範囲` の値（正本は `ontology.yaml` の `scope-question`）。"""
     return (wiki.ontology.scope_question or {}).get("when-範囲", "判定保留")
 
 
 def pending_decisions(wiki, meeting_id=None):
     """問いを立てるべき決定。`ontology.yaml` の条件をそのまま当てる。"""
-    want_scope = _pending_scope(wiki)
+    want_scope = pending_scope(wiki)
     return [c for c in _askable_decisions(wiki, meeting_id)
             if c.get("範囲") == want_scope]
 
@@ -140,7 +141,7 @@ def _owned(wiki, decision):
 def closable(wiki, meeting_id=None):
     """範囲が判定済みなのに、範囲の問いが開いたままの決定。[(決定, 問い), ...]。"""
     out = []
-    pending = _pending_scope(wiki)
+    pending = pending_scope(wiki)
     for decision in _askable_decisions(wiki, meeting_id):
         if decision.get("範囲") in ("", pending):
             continue
