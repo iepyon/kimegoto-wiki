@@ -104,7 +104,7 @@ def targets(wiki, ids=None, all_open=False):
             raise KeyError("存在しない ACT: %s" % ", ".join(missing))
         return [by_id[i] for i in ids]
     if all_open:
-        return [c for c in cards if c.get("status") not in ("完了", "取り下げ")]
+        return [c for c in cards if wiki.is_open(c)]
     return []
 
 

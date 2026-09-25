@@ -30,6 +30,24 @@ class OntologyIntegrityTest(unittest.TestCase):
         for t in self.o.type_names():
             self.assertTrue(self.o.spec(t).get("summary"), "%s の summary が無い" % t)
 
+    def test_閉じた_status_と効いている_status_は_status_の語彙にある(self):
+        for t in self.o.type_names():
+            spec = self.o.spec(t)
+            for key in ("closed-status", "active-status"):
+                if key not in spec:
+                    continue
+                vocab = self.o.enum_for(t, "status")
+                for v in spec[key]:
+                    self.assertIn(v, vocab, "%s.%s の `%s` が status の語彙に無い" % (t, key, v))
+
+    def test_判定に使う値はそれぞれの語彙にある(self):
+        for v in self.o.extract_kinds():
+            self.assertIn(v, self.o.enum_for("LOG", "種別"))
+        for v in self.o.tracked_vulnerability():
+            self.assertIn(v, self.o.enum_for("ASM", "脆弱性"))
+        self.assertIn(self.o.unverified_confidence, self.o.enum_values("信頼度"))
+        self.assertIn(self.o.no_record_value, self.o.enum_values("作らない"))
+
     def test_すべてのフィールドに_description_がある(self):
         for t in self.o.type_names():
             for name, spec in self.o.field_specs(t).items():

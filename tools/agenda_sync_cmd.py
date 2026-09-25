@@ -27,13 +27,14 @@ from tools import schema
 from tools.cards import Wiki, resolve_root
 from tools.update_cmd import UpdateError, apply_updates
 
-OPENED = "未着手"
-CONTINUED = "継続"
+# 扱ったら書き換える前後の値。この遷移は agenda-sync だけが持つ。
+OPENED = "未着手"  # 直書き: agenda-sync の遷移の起点
+CONTINUED = "継続"  # 直書き: agenda-sync の遷移の終点
 
 
 def plan(wiki, meeting_id=None):
     """[(議題カード, [(フィールド, 値), ...], [説明, ...]), ...]。直すものが無い議題は出さない。"""
-    closed = set(wiki.ontology.agenda_closed_status())
+    closed = set(wiki.ontology.closed_status("AGD"))
     on_agenda = _carried_meetings(wiki, meeting_id)
     out = []
     for card in sorted(wiki.by_type("AGD"), key=lambda c: c.id):

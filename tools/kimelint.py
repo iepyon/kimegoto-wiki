@@ -534,9 +534,9 @@ def check_silence_confidence(ctx):
         for i, row in enumerate(c.structs("代替案"), start=1):
             if not isinstance(row, dict):
                 continue
-            if row.get("却下理由") != "記録なし":
+            if row.get("却下理由") != ctx.o.no_record_value:
                 continue
-            if row.get("信頼度") not in ("", None, "推測"):
+            if row.get("信頼度") not in ("", None, ctx.o.unverified_confidence):
                 out.append(_p(check_silence_confidence, c.id,
                               "代替案%d件目が `却下理由: 記録なし` なのに `信頼度: %s` を名乗っている"
                               % (i, row.get("信頼度"))))
@@ -698,7 +698,7 @@ def check_asm_loadbearing(ctx):
     """逆リンクの無い前提カードは飾りになる。"""
     out = []
     for c in ctx.of_type("ASM"):
-        if c.get("脆弱性") != "高":
+        if c.get("脆弱性") not in ctx.o.tracked_vulnerability():
             continue
         if not c.list("崩れたら見直す決定"):
             out.append(_p(check_asm_loadbearing, c.id,
@@ -711,7 +711,7 @@ def check_asm_signpost_empty(ctx):
     """`脆弱性: 高` なのに signpost が無い。追跡できない前提になる。"""
     out = []
     for c in ctx.of_type("ASM"):
-        if c.get("脆弱性") == "高" and not c.get("signpost"):
+        if c.get("脆弱性") in ctx.o.tracked_vulnerability() and not c.get("signpost"):
             out.append(_p(check_asm_signpost_empty, c.id, "`脆弱性: 高` なのに `signpost` が空"))
     return out
 
@@ -740,7 +740,7 @@ def check_con_expiry(ctx):
     """expectation は破られ得るので失効条件が要る。property は事実なので空でよい。"""
     out = []
     for c in ctx.of_type("CON"):
-        if c.get("種類") == "expectation" and not c.get("失効条件"):
+        if c.get("種類") == "expectation" and not c.get("失効条件"):  # 直書き: 失効し得るのは期待だけ（事実は失効しない）
             out.append(_p(check_con_expiry, c.id, "`種類: expectation` なのに `失効条件` が空"))
     return out
 
@@ -769,7 +769,7 @@ def check_why_missing(ctx):
     昇格の門でコストを付ける。ここは計器であって、消す対象ではない。
     """
     return [_p(check_why_missing, c.id, "`なぜ` が未記入（次回アジェンダに掲示される）")
-            for c in ctx.of_type("DEC") if not c.get("なぜ") and c.get("status") != "覆された"]
+            for c in ctx.of_type("DEC") if not c.get("なぜ") and ctx.o.is_open("DEC", c.get("status"))]
 
 
 @check("dec-deferral", WARNING)
@@ -794,7 +794,7 @@ def check_act_open_fields(ctx):
     """未完了 ACT の担当・期限。空欄が正常な出力で、②の確認で人間が埋める。"""
     out = []
     for c in ctx.of_type("ACT"):
-        if c.get("status") in ("完了", "取り下げ"):
+        if not ctx.o.is_open("ACT", c.get("status")):
             continue
         missing = [f for f in ("担当", "期限") if not c.get(f)]
         if missing:
@@ -808,7 +808,7 @@ def check_act_overdue(ctx):
     """期限を過ぎて未完了のアクション。"""
     out = []
     for c in ctx.of_type("ACT"):
-        if c.get("status") in ("完了", "取り下げ"):
+        if not ctx.o.is_open("ACT", c.get("status")):
             continue
         days = ctx.days_since(c, "期限")
         if days is not None and days > 0:
@@ -823,7 +823,7 @@ def check_asm_review_due(ctx):
     out = []
     limit = ctx.o.threshold("asm-review-overdue-days")
     for c in ctx.of_type("ASM"):
-        if c.get("status") != "有効":
+        if not ctx.wiki.is_active(c):
             continue
         days = ctx.days_since(c, "次回確認日")
         if days is not None and days > limit:
@@ -838,7 +838,7 @@ def check_q_stale(ctx):
     out = []
     limit = ctx.o.threshold("q-stale-days")
     for c in ctx.of_type("Q"):
-        if c.get("status") != "未決":
+        if not ctx.o.is_open("Q", c.get("status")):
             continue
         days = ctx.days_since(c, "最終言及")
         if days is not None and days > limit:
@@ -853,7 +853,7 @@ def check_dec_unconfirmed(ctx):
     out = []
     limit = ctx.o.threshold("dec-unconfirmed-days")
     for c in ctx.of_type("DEC"):
-        if c.get("status") != "決定" or c.get("確定日"):
+        if not ctx.wiki.is_active(c) or c.get("確定日"):
             continue
         days = ctx.days_since(c, "決定日")
         if days is not None and days > limit:
@@ -879,7 +879,7 @@ def check_log_barren(ctx):
         referenced.update(c.list("derived_from"))
     notes = ctx.wiki.extraction_notes
     for c in ctx.of_type("LOG"):
-        if c.get("種別") not in ("議論", "確認"):
+        if c.get("種別") not in ctx.o.extract_kinds():
             continue
         if c.id in referenced:
             continue
@@ -903,7 +903,7 @@ def check_issue_orphan(ctx):
     return [_p(check_issue_orphan, c.id,
                "status が `%s` だが `issue` が残っている: %s" % (c.get("status"), c.get("issue")))
             for c in ctx.of_type("ACT")
-            if c.get("issue") and c.get("status") in ("完了", "取り下げ")]
+            if c.get("issue") and not ctx.o.is_open("ACT", c.get("status"))]
 
 
 # ============================================================ 議題
@@ -933,11 +933,10 @@ def check_agd_closed_open(ctx):
     """
     out = []
     for c in ctx.of_type("AGD"):
-        if c.get("status") != "決着":
+        if c.get("status") != "決着":  # 直書き: 取り下げた議題は子が残っていてよい
             continue
         rest = [x.id for x in ctx.wiki.children_of(c)
-                if (x.type == "Q" and x.get("status") == "未決")
-                or (x.type == "ACT" and x.get("status") not in ("完了", "取り下げ"))]
+                if x.type in ("Q", "ACT") and ctx.o.is_open(x.type, x.get("status"))]
         if rest:
             out.append(_p(check_agd_closed_open, c.id,
                           "`決着` だが、下に閉じていないカードが残っている: %s" % " / ".join(rest)))
@@ -951,7 +950,7 @@ def check_agd_closed_undated(ctx):
     status だけでは「いつ閉じたか」が記録に残らず、過去の会議の議事録で後の決着が
     映る。閉じた会議の日を書く（確認② 2-5 の `kime update`）。
     """
-    closed = set(ctx.o.agenda_closed_status())
+    closed = set(ctx.o.closed_status("AGD"))
     return [_p(check_agd_closed_undated, c.id,
                "`%s` だが `決着日` が空（閉じた会議の日を書く）" % c.get("status"))
             for c in ctx.of_type("AGD")

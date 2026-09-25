@@ -160,6 +160,14 @@ class Wiki:
     def __repr__(self):
         return "<Wiki %s>" % self.root
 
+    def is_open(self, card):
+        """カードが開いているか。閉じた status は `ontology.yaml` の `closed-status`。"""
+        return self.ontology.is_open(card.type, card.get("status"))
+
+    def is_active(self, card):
+        """カードが現に効いているか。`ontology.yaml` の `active-status`。"""
+        return self.ontology.is_active(card.type, card.get("status"))
+
     # ------------------------------------------------------------ 走査
 
     @cached_property
@@ -380,7 +388,7 @@ class Wiki:
         のどれか。`meeting_id` が None なら「次回」とみなし、閉じていない議題を全部出す。
         対象会議はまだディレクトリが無くてよい（会議の前に作るものなので）。
         """
-        closed = set(self.ontology.agenda_closed_status())
+        closed = set(self.ontology.closed_status("AGD"))
         out = []
         for card in sorted(self.by_type("AGD"), key=lambda c: c.id):
             if card.error is not None or card.get("status") in closed:

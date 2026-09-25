@@ -29,7 +29,7 @@ def confirm_to(wiki, decision):
     問いを立てても誰も答えられない）。引けなければ空欄で返す。
     """
     o = wiki.ontology
-    want = (o.scope_question or {}).get("確認先-所属", "顧客側")
+    want = o.scope_question_value("確認先-所属")
     role = decision.get("決定の所在")
     if role and wiki.is_known_role(role):
         if (wiki.role(role) or {}).get("所属") == want:
@@ -42,8 +42,7 @@ def confirm_to(wiki, decision):
 
 def _askable_decisions(wiki, meeting_id=None):
     """スコープを顧客に問う種別の決定。`ontology.yaml` の `when-種別` をそのまま当てる。"""
-    spec = wiki.ontology.scope_question or {}
-    want_kinds = spec.get("when-種別", [])
+    want_kinds = wiki.ontology.scope_question_value("when-種別")
     if not isinstance(want_kinds, list):
         want_kinds = [want_kinds]
     pool = (wiki.cards_of_meeting(meeting_id, "DEC") if meeting_id
@@ -51,13 +50,13 @@ def _askable_decisions(wiki, meeting_id=None):
     return sorted([c for c in pool
                    if c.error is None
                    and c.get("種別") in want_kinds
-                   and c.get("status") not in ("覆された", "取り下げ")],
+                   and wiki.is_open(c)],
                   key=lambda c: c.id)
 
 
 def pending_scope(wiki):
     """まだ聞いていないことを表す `スコープ` の値（正本は `ontology.yaml` の `scope-question`）。"""
-    return (wiki.ontology.scope_question or {}).get("when-スコープ", "判定保留")
+    return wiki.ontology.scope_question_value("when-スコープ")
 
 
 def pending_decisions(wiki, meeting_id=None):
@@ -71,8 +70,7 @@ TITLE_SLOT = "{headline}"
 
 
 def question_title(wiki, decision):
-    template = (wiki.ontology.scope_question or {}).get(
-        "title-template", "%sは当初スコープ内か" % TITLE_SLOT)
+    template = wiki.ontology.scope_question_value("title-template")
     return template.replace(TITLE_SLOT, decision.headline(wiki.ontology))
 
 
