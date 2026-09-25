@@ -1,24 +1,37 @@
 #!/usr/bin/env python3
-"""ontology.yaml → schema.md のフィールド表を生成する。
+"""ontology.yaml → schema.md の生成ブロックを生成し、散文とサンプルを照合する。
 
 **schema.md を全面生成はしない。** このファイルの価値の大半は「なぜ `スコープ` が
 要るか」「van Lamsweerde の一文がそのまま判定テストになる」といった散文の論証で、
-それを YAML の文字列に押し込むと読み物として壊れる。
+それを YAML の文字列に押し込むと読み物として壊れる。論証は型やフィールドに
+1対1で乗らない（判定テストは CON / ASM / ACT / DEC にまたがる）うえ、
+ontology.yaml はスキルが読むので、長くするとその分コンテキストを食う。
 
-そこで、機械が実際に評価する記述だけをマーカーで囲んで生成する:
+そこで分担を決める。**事実は ontology.yaml、論証は schema.md。**
+機械で決まる記述（型一覧・ID 形式・フィールド表・導出表・語のリスト）は
+マーカーで囲んで生成する:
 
     <!-- generated:fields DEC — ontology.yaml から生成。手編集禁止 -->
     （フィールド表）
     <!-- /generated -->
 
+マーカーの種類は `RENDERERS` にある。`fields` 以外は自動で差し込まない
+（どこに置くかは散文の流れで人が決める）。
+
 散文とサンプル frontmatter はマーカーの外にあり、人が書いたまま残る。
-サンプルのほうは生成せず、宣言との食い違いだけを --check-samples で照合する
-（コメント付きのサンプルは人間向けの説明を兼ねており、生成すると情報が落ちる）。
+事実を写さないのが原則だが、散文は語彙やフィールド名に触れずには書けないので、
+その触れ方を --check-samples で照合する:
+
+- サンプル frontmatter のキーと、語彙フィールドの値
+- 散文中の `フィールド: 値` と、日本語だけのコード表記（フィールド名・語彙の値のはず）
+
+改名で散文に旧語が残ると、ここで落ちる。照合側に例外リストは持たない
+（例外リストは第二の写しになる）。誤検知したら散文の書き方を直す。
 
 使い方:
     python3 tools/gen_schema_doc.py --render          # schema.md を書き換える
     python3 tools/gen_schema_doc.py --check           # 差分があれば終了コード 1
-    python3 tools/gen_schema_doc.py --check-samples   # サンプルと宣言の食い違い
+    python3 tools/gen_schema_doc.py --check-samples   # サンプル・散文と宣言の食い違い
     python3 tools/gen_schema_doc.py --check-templates # 雛形と宣言の食い違い
 """
 
@@ -29,10 +42,14 @@ import sys
 from tools import schema
 from tools.miniyaml import MiniYamlError, parse
 
-MARKER_OPEN = "<!-- generated:fields %s — ontology.yaml から生成。手編集禁止 -->"
+MARKER_OPEN = "<!-- generated:%s — ontology.yaml から生成。手編集禁止 -->"
 MARKER_CLOSE = "<!-- /generated -->"
+# 本文は空でもよく（置いたばかりのマーカー）、次のマーカーをまたがない。
+# またぐと、閉じ忘れや空のブロックで間の散文ごと置き換えてしまう。
 BLOCK_RE = re.compile(
-    r"<!-- generated:fields (?P<type>\w+) [^>]*-->\n.*?\n" + re.escape(MARKER_CLOSE) + r"\n",
+    r"<!-- generated:(?P<kind>[\w-]+)(?: (?P<arg>[^\s—]+))? [^>]*-->\n"
+    r"(?:(?!<!-- generated:).)*?"
+    + re.escape(MARKER_CLOSE) + r"\n",
     re.DOTALL)
 
 KIND_LABEL = {
@@ -41,13 +58,29 @@ KIND_LABEL = {
     "struct-list": "構造化配列", "quote": "引用", "time-range": "時刻範囲",
 }
 
+LAYER_LABEL = {"flow": "フロー", "stock": "ストック"}
+
+# ID の正規表現を人が読む形に直す。
+ID_PLACEHOLDERS = [(r"\d{8}", "YYYYMMDD"), (r"\d{3}", "NNN"), (r"\d{2}", "NN")]
+
 
 def _type_heading_re(type_name):
     return re.compile(r"^## %s\b.*$" % re.escape(type_name), re.MULTILINE)
 
 
-def render_table(ontology, type_name):
-    rows = ["| フィールド | 種類 | 必須 | 値 | 記入主体 |", "|---|---|---|---|---|"]
+def id_pattern(regex):
+    text = regex.strip("^$")
+    for pattern, placeholder in ID_PLACEHOLDERS:
+        text = text.replace(pattern, placeholder)
+    return text
+
+
+# ------------------------------------------------------------ 生成
+
+def render_fields(ontology, type_name):
+    if type_name not in ontology.type_names():
+        return None
+    rows = ["| フィールド | 意味 | 種類 | 必須 | 値 | 記入主体 |", "|---|---|---|---|---|---|"]
     for name, spec in ontology.field_specs(type_name).items():
         kind = KIND_LABEL.get(spec.get("kind"), spec.get("kind", ""))
         required = "○" if str(spec.get("required", "")).lower() == "true" else "—"
@@ -63,29 +96,76 @@ def render_table(ontology, type_name):
             values = " / ".join("`%s`" % k for k in struct.get("keys", []))
         else:
             values = "—"
-        rows.append("| `%s` | %s | %s | %s | %s |"
-                    % (name, kind, required, values, spec.get("記入主体", "")))
+        rows.append("| `%s` | %s | %s | %s | %s | %s |"
+                    % (name, spec.get("description", ""), kind, required, values,
+                       spec.get("記入主体", "")))
     return "\n".join(rows)
 
 
-def render_block(ontology, type_name):
-    return "%s\n\n%s\n\n%s\n" % (MARKER_OPEN % type_name,
-                                 render_table(ontology, type_name),
-                                 MARKER_CLOSE)
+def render_types(ontology, _arg):
+    rows = ["| 層 | 型 | 名前 | ID 形式 | 何を表すか |", "|---|---|---|---|---|"]
+    for type_name in ontology.type_names():
+        spec = ontology.spec(type_name)
+        rows.append("| %s | %s | %s | `%s` | %s |"
+                    % (LAYER_LABEL.get(spec.get("layer"), spec.get("layer", "")), type_name,
+                       ontology.label(type_name), id_pattern(spec["id"]),
+                       spec.get("summary", "")))
+    rows.append("")
+    rows.append("会議の ID は `%s`。" % id_pattern(ontology.meetings.get("id", "")))
+    return "\n".join(rows)
+
+
+def render_derivation(ontology, name):
+    spec = ontology.derivations.get(name)
+    if not spec or "table" not in spec:
+        return None
+    columns = list(spec["from"])
+    rows = ["| %s | %s |" % (" | ".join(columns), name),
+            "|" + "---|" * (len(columns) + 1)]
+    for key, value in spec["table"].items():
+        rows.append("| %s | %s |" % (" | ".join(key.split("/")), value))
+    return "\n".join(rows)
+
+
+def render_words(ontology, key):
+    words = ontology._d.get(key)
+    if not isinstance(words, list):
+        return None
+    return "```\n%s\n```" % " / ".join(words)
+
+
+# マーカーの種類 → (ontology, 引数) → 本文。None を返したら未知として触らない。
+RENDERERS = {
+    "fields": render_fields,
+    "types": render_types,
+    "derivation": render_derivation,
+    "words": render_words,
+}
+
+
+def _marker_arg(kind, arg):
+    return "%s %s" % (kind, arg) if arg else kind
+
+
+def render_block(ontology, kind, arg=None):
+    body = RENDERERS[kind](ontology, arg)
+    if body is None:
+        return None
+    return "%s\n\n%s\n\n%s\n" % (MARKER_OPEN % _marker_arg(kind, arg), body, MARKER_CLOSE)
 
 
 def apply(text, ontology):
-    """schema.md の各型節に生成ブロックを挿入 / 更新した全文を返す。"""
+    """schema.md の生成ブロックを挿入 / 更新した全文を返す。"""
     # まず既存ブロックを更新する。
     def replace(m):
-        type_name = m.group("type")
-        if type_name not in ontology.type_names():
+        kind, arg = m.group("kind"), m.group("arg")
+        if kind not in RENDERERS:
             return m.group(0)
-        return render_block(ontology, type_name)
+        return render_block(ontology, kind, arg) or m.group(0)
 
     text = BLOCK_RE.sub(replace, text)
 
-    # まだブロックが無い型は、見出しの直後に差し込む。
+    # フィールド表だけは、まだブロックが無い型の見出しの直後に差し込む。
     for type_name in ontology.type_names():
         if re.search(r"<!-- generated:fields %s\b" % type_name, text):
             continue
@@ -93,7 +173,8 @@ def apply(text, ontology):
         if not heading:
             continue
         insert_at = heading.end()
-        text = text[:insert_at] + "\n\n" + render_block(ontology, type_name).rstrip("\n") + text[insert_at:]
+        block = render_block(ontology, "fields", type_name)
+        text = text[:insert_at] + "\n\n" + block.rstrip("\n") + text[insert_at:]
     return text
 
 
@@ -141,6 +222,94 @@ def check_samples(text, ontology):
         for key in ontology.required_fields(type_name):
             if key not in data:
                 problems.append("%s のサンプルに必須フィールド `%s` が無い" % (type_name, key))
+        problems.extend(_check_sample_values(type_name, data, ontology))
+    return problems
+
+
+def _check_sample_values(type_name, data, ontology):
+    """語彙フィールドの値が語彙にあるか。空と自由記述を許すフィールドは通す。"""
+    problems = []
+    for key, value in data.items():
+        spec = ontology.field_specs(type_name).get(key, {})
+        enum = spec.get("enum")
+        if enum and value and not ontology.allows_free_text(type_name, key) \
+                and value not in ontology.enum_values(enum):
+            problems.append("%s のサンプルの `%s: %s` は語彙 %s に無い" % (type_name, key, value, enum))
+        if spec.get("kind") == "struct-list" and isinstance(value, list):
+            enums = ontology.structs.get(spec.get("struct"), {}).get("enums", {})
+            for item in value:
+                if not isinstance(item, dict):
+                    continue
+                for sub, sub_enum in enums.items():
+                    if item.get(sub) and item[sub] not in ontology.enum_values(sub_enum):
+                        problems.append("%s のサンプルの `%s[].%s: %s` は語彙 %s に無い"
+                                        % (type_name, key, sub, item[sub], sub_enum))
+    return problems
+
+
+# --------------------------------------------------------- 散文の照合
+
+FENCE_RE = re.compile(r"^```.*?^```\n", re.DOTALL | re.MULTILINE)
+CODE_RE = re.compile(r"`([^`\n]+)`")
+PAIR_RE = re.compile(r"^(\w+): (\S+)$")
+# 日本語だけの語（かな・カナ・漢字と長音・々）。英字・空白・記号を含むものは見ない。
+JAPANESE_RE = re.compile(r"^[\u3040-\u30ff\u3400-\u9fff々ー]+$")
+
+
+def _prose(text):
+    """生成ブロックとコードフェンスを除いた散文。"""
+    return FENCE_RE.sub("", BLOCK_RE.sub("", text))
+
+
+def _known_names(ontology):
+    """散文が日本語だけのコード表記で触れてよい名前。"""
+    names = set(ontology.enums)
+    for values in ontology.enums.values():
+        names.update(values)
+    for type_name in ontology.type_names():
+        names.add(ontology.label(type_name))
+        names.update(ontology.field_specs(type_name))
+    for struct in ontology.structs.values():
+        names.update(struct.get("keys", []))
+    return names
+
+
+def _enum_of_field(ontology, field):
+    """どれかの型でそのフィールドに付いた語彙（無ければ None）。"""
+    for type_name in ontology.type_names():
+        enum = ontology.field_specs(type_name).get(field, {}).get("enum")
+        if enum:
+            return enum
+    for struct in ontology.structs.values():
+        if field in struct.get("enums", {}):
+            return struct["enums"][field]
+    return None
+
+
+def check_prose(text, ontology):
+    """散文中のコード表記が ontology.yaml の名前と食い違っていないか。
+
+    - `フィールド: 値` … フィールドが宣言され、語彙フィールドなら値が語彙にある
+    - 日本語だけの語 … フィールド名・語彙の値・語彙名・型の名前のどれか
+    """
+    known = _known_names(ontology)
+    problems = []
+    seen = set()
+    for token in CODE_RE.findall(_prose(text)):
+        if token in seen:
+            continue
+        seen.add(token)
+        pair = PAIR_RE.match(token)
+        if pair:
+            field, value = pair.groups()
+            if field not in known:
+                problems.append("`%s` のフィールド `%s` が宣言に無い" % (token, field))
+                continue
+            enum = _enum_of_field(ontology, field)
+            if enum and value not in ontology.enum_values(enum):
+                problems.append("`%s` の値 `%s` が語彙 %s に無い" % (token, value, enum))
+        elif JAPANESE_RE.match(token) and token not in known:
+            problems.append("`%s` がフィールド名・語彙のどれにも無い" % token)
     return problems
 
 
@@ -212,6 +381,11 @@ def main(argv=None):
         for p in problems:
             print("サンプル: %s" % p)
         print("サンプル: %d件の食い違い" % len(problems))
+        failed = failed or bool(problems)
+        problems = check_prose(text, ontology)
+        for p in problems:
+            print("散文: %s" % p)
+        print("散文: %d件の食い違い" % len(problems))
         failed = failed or bool(problems)
 
     if args.check_templates:

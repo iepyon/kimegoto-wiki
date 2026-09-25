@@ -315,7 +315,7 @@ ACT を GitHub Issue にしたいときは「ACT-014 を Issue にして」
 | `projects/<案件名>/views/` | 生成物。**手で編集しない** |
 | `ontology.yaml` | 型・フィールド・語彙・閾値の唯一の正本 |
 | `decision-guide.md` | 何を DEC とするかの判定ガイド。**最初に読む** |
-| `schema.md` | カード定義・ID 規約（フィールド表は `ontology.yaml` から生成） |
+| `schema.md` | カード定義の論証（型一覧・ID 形式・フィールド表・導出表は `ontology.yaml` から生成） |
 | `templates/` | 案件とカードの雛形 |
 | `.claude/skills/` | 各パスの手順と判定基準。`ingest` は束ね役で、順序と止まる場所だけを持つ |
 | `CLAUDE.md` | 3つの層と、絶対に守る3つのルール |
