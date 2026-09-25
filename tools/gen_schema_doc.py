@@ -369,9 +369,10 @@ def check_prose(text, ontology):
 
 
 # 散文の照合をかける文書。スキルと規約は ontology.yaml の語に触れずには書けないので、
-# schema.md と同じく触れ方を見る。docs/ は経緯の記録で、旧い語が残っているのが正しい。
+# schema.md と同じく触れ方を見る。経緯の記録は docs/ に置かず git の履歴に任せるので、
+# docs/ も現行の文書として照合する。
 DOC_GLOBS = [".claude/skills/*/SKILL.md", "CLAUDE.md", "README.md", "decision-guide.md",
-             "templates/**/*.md"]
+             "templates/**/*.md", "docs/*.md"]
 
 
 def check_docs(ontology):
