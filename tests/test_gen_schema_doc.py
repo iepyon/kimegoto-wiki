@@ -59,6 +59,14 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("当初合意内", problems[0])
 
+    def test_同名フィールドはどの型の語彙でもよい(self):
+        # `種別` は LOG では LOG種別、DEC では決定種別。最初の型の語彙だけで見ない。
+        self.assertEqual(g.check_prose("`種別: 契約制約` と `種別: 報告`", self.o), [])
+        self.assertEqual(len(g.check_prose("`種別: 存在しない`", self.o)), 1)
+
+    def test_自由記述を許すフィールドの値は照合しない(self):
+        self.assertEqual(g.check_prose("`作らない: 管理画面`", self.o), [])
+
     def test_散文の旧いフィールド名を捕まえる(self):
         problems = g.check_prose("`範囲` が空なら聞く。", self.o)
         self.assertEqual(len(problems), 1)

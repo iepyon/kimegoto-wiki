@@ -276,16 +276,21 @@ def _known_names(ontology):
     return names
 
 
-def _enum_of_field(ontology, field):
-    """どれかの型でそのフィールドに付いた語彙（無ければ None）。"""
+def _enums_of_field(ontology, field):
+    """そのフィールド名に付いた語彙の一覧。同名のフィールドが型ごとに別の語彙を持つことがある
+    （`種別` は LOG では LOG種別、DEC では決定種別）。どれかで自由記述を許すなら None
+    （値を照合しようがない）。語彙を持たなければ空。"""
+    out = []
     for type_name in ontology.type_names():
-        enum = ontology.field_specs(type_name).get(field, {}).get("enum")
-        if enum:
-            return enum
+        spec = ontology.field_specs(type_name).get(field, {})
+        if spec.get("enum"):
+            if ontology.allows_free_text(type_name, field):
+                return None
+            out.append(spec["enum"])
     for struct in ontology.structs.values():
         if field in struct.get("enums", {}):
-            return struct["enums"][field]
-    return None
+            out.append(struct["enums"][field])
+    return list(dict.fromkeys(out))
 
 
 def check_prose(text, ontology):
@@ -307,9 +312,10 @@ def check_prose(text, ontology):
             if field not in known:
                 problems.append("`%s` のフィールド `%s` が宣言に無い" % (token, field))
                 continue
-            enum = _enum_of_field(ontology, field)
-            if enum and value not in ontology.enum_values(enum):
-                problems.append("`%s` の値 `%s` が語彙 %s に無い" % (token, value, enum))
+            enums = _enums_of_field(ontology, field)
+            if enums and not any(value in ontology.enum_values(e) for e in enums):
+                problems.append("`%s` の値 `%s` が語彙 %s に無い"
+                                % (token, value, " / ".join(enums)))
         elif JAPANESE_RE.match(token) and token not in known:
             problems.append("`%s` がフィールド名・語彙のどれにも無い" % token)
     return problems
