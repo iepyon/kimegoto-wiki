@@ -31,10 +31,9 @@ class Ontology:
         self.enums = data.get("enums", {})
         self.fields = data.get("fields", {})
         self.structs = data.get("structs", {})
-        self.relations = data.get("relations", {})
         self.status_implications = data.get("status-implications", [])
         self.derivations = data.get("derivations", {})
-        self.derived_relations = data.get("derived-relations", {})
+        self.meeting_date_anchors = data.get("meeting-date-anchors", {})
         self.editions = data.get("editions", {})
         self.thresholds = data.get("thresholds", {})
         self.signpost_vague_words = data.get("signpost-vague-words", [])
@@ -106,7 +105,7 @@ class Ontology:
         return names[0] if names else None
 
     def has_quote(self, type_name):
-        return str(self.spec(type_name).get("has-quote", "")).lower() == "true"
+        return self.quote_field(type_name) is not None
 
     # ------------------------------------------------------------ 語彙
 
@@ -127,28 +126,16 @@ class Ontology:
 
     # ------------------------------------------------------------ 関係
 
-    def relation_range(self, name):
-        rel = self.relations.get(name) or {}
-        rng = rel.get("range", [])
-        return rng if isinstance(rng, list) else [rng]
-
-    def inverse_of(self, name):
-        rel = self.relations.get(name) or {}
-        return rel.get("inverse") or None
+    def ref_targets(self, type_name, field_name):
+        """参照フィールドが指してよい型のリスト。"""
+        ref = (self.field(type_name, field_name) or {}).get("ref", [])
+        return list(ref) if isinstance(ref, list) else [ref]
 
     def ref_fields(self, type_name):
         """(フィールド名, 参照先型のリスト) を返す。ref / ref-list の両方。"""
-        out = []
-        for name, spec in self.field_specs(type_name).items():
-            if spec.get("kind") not in ("ref", "ref-list"):
-                continue
-            ref = spec.get("ref", "")
-            if ref == "any":
-                targets = self.type_names() + ["MTG"]
-            else:
-                targets = self.relation_range(name) or [ref]
-            out.append((name, targets))
-        return out
+        return [(name, self.ref_targets(type_name, name))
+                for name, spec in self.field_specs(type_name).items()
+                if spec.get("kind") in ("ref", "ref-list")]
 
     # ------------------------------------------------------------ 導出
 
@@ -175,19 +162,14 @@ class Ontology:
         return [name for name in self.derivations
                 if (self.derivations[name] or {}).get("from") == "role-mapping"]
 
-    # -------------------------------------------------- 導出される関係
-
-    def meeting_relation(self):
-        """カード ↔ 会議（多対多）の宣言。"""
-        return self.derived_relations.get("会議", {})
+    # -------------------------------------------------- カードと会議の日付
 
     def date_anchor(self, type_name, which):
         """その型で「最初の会議日 / 最新の会議日」に対応するフィールド名。
 
         Q なら first=初出 / last=最終言及。持たない型は None。
         """
-        anchors = (self.meeting_relation().get("date-anchors") or {}).get(type_name, {})
-        return anchors.get(which) or None
+        return (self.meeting_date_anchors.get(type_name) or {}).get(which) or None
 
 
     # ------------------------------------------------------------ 閾値

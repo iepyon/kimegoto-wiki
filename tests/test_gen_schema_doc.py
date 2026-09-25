@@ -93,9 +93,15 @@ class CheckTest(unittest.TestCase):
         self.assertIn("信頼度: たぶん", problems[1])
 
     def test_周辺ファイルのキーと語彙は散文で使ってよい(self):
-        text = "`決定権: あり` の役割。`review_required` を立てる。`種別: 新規制約` と `不明`。"
+        text = "`決定権: あり` の役割。`所属` を見る。`不明`。"
         self.assertEqual(g.check_prose(text, self.o), [])
         self.assertEqual(len(g.check_prose("`決定権: 有り`", self.o)), 1)
+
+    def test_文書自身の_yaml_の例にあるキーは散文で使ってよい(self):
+        text = ("```yaml\nunknown_terms:\n  - 語: オイデッシー\n    出現回数: 4\n```\n"
+                "`語` と `出現回数` を写す。")
+        self.assertEqual(g.check_prose(text, self.o), [])
+        self.assertEqual(len(g.check_prose("`出現回数` を写す。", self.o)), 1)
 
     def test_スキルと規約の散文に食い違いが無い(self):
         self.assertEqual(g.check_docs(self.o), [])

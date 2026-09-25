@@ -36,7 +36,6 @@ types:
     id: "^LOG-\\d{8}-\\d{2}$"
     type-value: log
     headline: title
-    has-quote: false
     extract-kinds: [議論, 確認]
 
   # 議題。会議をまたいで続く「決めたいこと」の単位で、DEC / Q / ACT の親。
@@ -50,7 +49,6 @@ types:
     id: "^AGD-\\d{3}$"
     type-value: agenda
     headline: title
-    has-quote: false
     closed-status: [決着, 取り下げ]
 
   DEC:
@@ -61,7 +59,6 @@ types:
     id: "^DEC-\\d{3}$"
     type-value: decision
     headline: title
-    has-quote: true
     closed-status: [覆された]
     active-status: [決定]
 
@@ -73,7 +70,6 @@ types:
     id: "^Q-\\d{3}$"
     type-value: question
     headline: title
-    has-quote: true
     closed-status: [解決, 取り下げ]
 
   ACT:
@@ -84,7 +80,6 @@ types:
     id: "^ACT-\\d{3}$"
     type-value: action
     headline: title
-    has-quote: true
     closed-status: [完了, 取り下げ]
 
   CON:
@@ -95,7 +90,6 @@ types:
     id: "^CON-\\d{3}$"
     type-value: constraint
     headline: 内容
-    has-quote: true
 
   ASM:
     label: 前提
@@ -105,7 +99,6 @@ types:
     id: "^ASM-\\d{3}$"
     type-value: assumption
     headline: 内容
-    has-quote: true
     active-status: [有効]
     tracked-vulnerability: [高]
 
@@ -117,12 +110,11 @@ types:
     id: "^TERM-\\d{3}$"
     type-value: term
     headline: 正式
-    has-quote: false
 
 # 機械が走査に使うものだけ。会議ディレクトリの中で機械が読むのは LOG と、
 # Pass 1 の出力（segments.yaml）と Pass 3 の欠落ガードの理由（extraction-notes.yaml）。
-# transcript.md / unknown-terms.yaml / promote-candidates.yaml は機械が評価しないので
-# ここには置かない。正本は templates/project/README.md と各スキル。
+# 会議ディレクトリの YAML の書式の正本は、それを書くスキル（segment / extract /
+# log-cards / review）の例。
 meetings:
   id: "^MTG-\\d{8}$"
   dir: meetings
@@ -154,14 +146,14 @@ enums:
   脆弱性: [高, 中, 低]
   対策種別: [shaping, hedging]
   決定権: [あり, なし]
-  昇格候補種別: [新規制約, 既存制約への紐づけ, 新規前提, 表記揺れの追記, 新規用語]
 
 # ------------------------------------------------------------
 # フィールド
 #   kind    : id | text | enum | date | ref | ref-list | str-list
 #             | struct-list | quote | time-range
 #   記入主体 : 自動（LLM が埋める）| 人間（②の確認で埋める）| 導出（機械が決める）
-#   ref     : 参照先の型（ref / ref-list のみ）
+#   ref     : 参照先の型。複数なら配列（ref / ref-list のみ）。
+#             リンクは片方向で、指す側だけがこのフィールドを持つ（CLAUDE.md「リンクは片方向」）
 #   free    : true なら enum の値以外も許す（`作らない` の <内容> のため）
 #   description: そのフィールドが何を表すかの1行（schema.md の表に生成される）。
 #             なぜ要るかは書かない（論証は schema.md の散文に置く）
@@ -204,7 +196,7 @@ fields:
     derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
     スコープ:   { kind: enum, enum: スコープ, required: true, 記入主体: 自動, description: "当初の合意に入っていたか" }
     議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出, description: "属する議題" }
-    同一性候補: { kind: ref-list, ref: any, required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
+    同一性候補: { kind: ref-list, ref: [DEC, Q, ACT], required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
     確定日:     { kind: date, required: false, 記入主体: 人間, description: "顧客提出版を送り、異議なく確定した日" }
     なぜ:       { kind: text, required: false, 記入主体: 人間, description: "決定の理由。人間が言った言葉だけ" }
     受容した不利: { kind: text, required: false, 記入主体: 人間, description: "採った案の不利" }
@@ -227,7 +219,7 @@ fields:
     derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
     resolved_by: { kind: ref, ref: DEC, required: false, 記入主体: 自動, description: "この問いを解決した決定" }
     議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出, description: "属する議題" }
-    同一性候補: { kind: ref-list, ref: any, required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
+    同一性候補: { kind: ref-list, ref: [DEC, Q, ACT], required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
 
   ACT:
     id:         { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
@@ -240,11 +232,11 @@ fields:
     引用:       { kind: quote, required: true, 記入主体: 自動, description: "根拠となる発言の逐語" }
     信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動, description: "引用の裏付けの強さ" }
     derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
-    関連:       { kind: ref-list, ref: any, required: false, 記入主体: 自動, description: "関係するカード" }
+    関連:       { kind: ref-list, ref: [DEC, Q, CON, ASM], required: false, 記入主体: 自動, description: "関係するカード" }
     更新履歴:   { kind: struct-list, struct: 更新履歴, required: false, 記入主体: 人間, description: "日付ごとの状態の変化" }
     issue:      { kind: text, required: false, 記入主体: 導出, description: "起票した GitHub Issue" }
     議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出, description: "属する議題" }
-    同一性候補: { kind: ref-list, ref: any, required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
+    同一性候補: { kind: ref-list, ref: [DEC, Q, ACT], required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
 
   CON:
     id:         { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
@@ -302,56 +294,17 @@ structs:
     required: []
 
 # ------------------------------------------------------------
-# 型付きリンク
-#   **リンクは片方向にしか書かない。** 議題と同じく、指す側を1つに決めて逆は引く
-#   （`wiki.constraints_of(dec)` / `wiki.assumptions_of(dec)`）。両方向に書くと食い違う。
-#   CON → DEC（影響する決定）と ASM → DEC（崩れたら見直す決定）はストック側が持つ。
-#   ストックは昇格の時点で「どの決定に効くか」を人が承認して書くので、そちらが正本。
-#   inverse を宣言した場合だけ、lint が双方向の一致を見る（いまは無い）。
+# カードと会議の日付の対応
+#   カード ↔ 会議は多対多で、derived_from → LOG → meeting と辿って得る
+#   （CLAUDE.md「カードと会議は多対多」）。ここはその最古 / 最新の会議日に
+#   対応するフィールド。lint が辿った日付と照合する。
 # ------------------------------------------------------------
 
-relations:
-  derived_from:       { domain: [DEC, Q, ACT, CON, ASM], range: [LOG] }
-  崩れたら見直す決定: { domain: [ASM], range: [DEC] }
-  影響する決定:       { domain: [CON], range: [DEC] }
-  resolved_by:        { domain: [Q], range: [DEC] }
-  superseded_by:      { domain: [DEC], range: [DEC] }
-  関連:               { domain: [ACT], range: [DEC, Q, CON, ASM] }
-  初出:               { domain: [TERM], range: [LOG] }
-  意味が確定した決定: { domain: [TERM], range: [DEC] }
-  meeting:            { domain: [LOG], range: [MTG] }
-  議題:               { domain: [DEC, Q, ACT], range: [AGD] }
-  同一性候補:         { domain: [DEC, Q, ACT], range: [DEC, Q, ACT] }
-
-# ------------------------------------------------------------
-# 導出される関係
-#
-#   カード ↔ 会議は **多対多**である。
-#   DEC / Q / ACT は derived_from で LOG を指し、LOG は meeting で MTG を指す。
-#   そして「同じ論点が複数回の会議にまたがっても1枚のカードが更新されていく」
-#   （README）以上、1枚の DEC が複数の MTG の LOG を参照する状態は正常であり、
-#   1つの MTG からは当然いくつもの DEC が生える。
-#
-#   この多対多は frontmatter に直接は現れない。辿って得る関係なので、
-#   カード側に meeting フィールドを持たせない（持たせると、2回目の会議で
-#   更新したときに1つしか書けず、嘘になる）。
-#
-#   Q の 初出 / 最終言及 は、この多対多を日付に射影したもの。
-#   だから「初出 = 最古の会議日」「最終言及 = 最新の会議日」で照合できる。
-# ------------------------------------------------------------
-
-derived-relations:
-
-  会議:
-    domain: [DEC, Q, ACT, CON, ASM]
-    range: [MTG]
-    cardinality: many-to-many
-    via: [derived_from, meeting]
-    date-anchors:
-      Q: { first: 初出, last: 最終言及 }
-      DEC: { first: 決定日 }
-      CON: { last: 承認 }
-      ASM: { last: 最終確認 }
+meeting-date-anchors:
+  Q: { first: 初出, last: 最終言及 }
+  DEC: { first: 決定日 }
+  CON: { last: 承認 }
+  ASM: { last: 最終確認 }
 
 # ------------------------------------------------------------
 # 状態の整合
@@ -460,7 +413,6 @@ editions:
       - { field: 作らない, value: 未記入 }
       - { field: 作らない, value: 記録なし }
     drop-sections: [記録の状態, 議論の経緯]
-    role-to-company: true
     deemed-confirmation: true
     sections:
       - { title: 前回アクションの結果, note: "内容・担当・期限・状況（ID は出さない）" }
@@ -472,18 +424,12 @@ editions:
 # ------------------------------------------------------------
 # 次回アジェンダ
 #   節構成の正本。`kime agenda-input` が骨格として出し、`views/agenda-next.md`
-#   も同じ順で並べる。**冒頭は `なぜ` 未記入の決定**（書かないことに付けたコスト）。
-#
-#   載せる議題（AGD）は機械で決まる: status が closed-status でなく、かつ
-#   `予定会議` に対象会議を含む / `予定会議` がすべて対象会議より前（持ち越し）/
-#   `予定会議` が空（次回）。決着するまで次回へ自動で残る。
+#   も同じ順で並べる。載せる議題の決まり方は schema.md の AGD 節。
 # ------------------------------------------------------------
 
 agenda:
   # 議題を言い換えただけの Q を拾う（lint の `q-restates-agenda`）。
   # 題名から次の語と記号を除いてから、文字の2字組の重なり（Dice 係数・百分率）を見る。
-  # 開いた議題そのものが「まだ決まっていない」を表しているので、同じものを Q に立てない。
-  # Q に立てるのは「決めるために足りないもの」（誰の何を待っているか）だけ。
   restate-strip: [を決めたい, を決める, について, をどうするか, どうするか, するか, か]
   restate-similarity-percent: 80
   sections:
@@ -534,18 +480,9 @@ unknown-value: 不明
 deferral-phrases: [前向きに検討, 持ち帰り, 持ち帰ります, 調整します, 一旦置い, 検討します]
 
 # ------------------------------------------------------------
-# スコープが `判定保留` の決定を、顧客に聞く問いとして射影する
-#   **カードにはしない。** `スコープ: 判定保留` という DEC の状態そのものが「まだ聞いて
-#   いない」を表しているので、同じことを Q カードに写すと二重管理になる（閉じ忘れの
-#   lint、`resolved_by` の流用、題名の一致で元の決定を推定する照合、が全部要らなくなる）。
-#   `kime scope-questions` が一覧を出し、アジェンダの「スコープの確認」節と議事録の
-#   未決事項／確認事項に同じ写像で出る。2-0 で人が `スコープ` を書けば、その時点で消える。
-#
-#   条件・題名・確認先は決定的なので LLM に書かせない。
-#   `種別: 技術判断` を外すのは、技術判断がスコープ交渉の対象になるのが工数の増える
-#   ときだけで、その場合は発話の側に「見積に入っていない」が現れるから。
-#   相手に聞くことのない問いを出すと、次回アジェンダがスコープ判定で埋まり、
-#   アジェンダそのものが読まれなくなる。
+# スコープの確認（`kime scope-questions`）
+#   `スコープ: 判定保留` の決定を、顧客に聞く問いとして射影する条件・題名・確認先。
+#   カードにはしない。理由と `技術判断` を外す理由は schema.md の `スコープ` 節。
 # ------------------------------------------------------------
 
 scope-question:
@@ -563,12 +500,12 @@ assumption-trigger-words: [今は, 当面, のうちは, 現状, いまのとこ
 
 # ------------------------------------------------------------
 # 周辺ファイル
-#   カードではないが、機械とスキルが読み書きする YAML の書式。
-#   schema.md の「周辺ファイル」節に生成され、スキルの散文の照合にも使う。
+#   カードではないが機械が読む、案件ごとの設定ファイルの書式。
+#   schema.md の「周辺ファイル」節に生成され、lint とスキルの散文の照合に使う。
 #
 #   path   : 置き場所（案件のルートからの相対）
 #   keys   : キー → { in, description, enum?, grants? }
-#     in      : 親の位置。"" は最上位、`roles.*` は roles の各要素、`segments[]` は配列の各要素
+#     in      : 親の位置。"" は最上位、`roles.*` は roles の各要素
 #     grants  : （決定権のみ）DEC を確定してよいことを表す値
 # ------------------------------------------------------------
 
@@ -590,63 +527,3 @@ files:
       社名:                 { in: "roles.*", description: "役割の会社名（ACT の `担当` はここから導出する）" }
       決定権:               { in: "roles.*", enum: 決定権, grants: あり, description: "この役割の発言で DEC を確定してよいか" }
       決定の種別:           { in: "roles.*", enum: 決定種別, description: "この役割が決めたことの種別（DEC の `種別` はここから導出する）" }
-
-  segments:
-    path: meetings/MTG-*/segments.yaml
-    summary: Pass 1 の出力。論点の切り出し
-    keys:
-      meeting:  { in: "", description: "会議の ID" }
-      segments: { in: "", description: "論点の配列" }
-      seq:      { in: "segments[]", description: "論点の通し番号（1から連番）" }
-      title:    { in: "segments[]", description: "論点の見出し" }
-      種別:     { in: "segments[]", enum: LOG種別, description: "論点の性質" }
-      時刻:     { in: "segments[]", description: "文字起こし上の開始・終了時刻" }
-      参加役割: { in: "segments[]", description: "この論点で発言した役割" }
-      議題:     { in: "segments[]", description: "論点が扱った議題（AGD）" }
-
-  extraction-notes:
-    path: meetings/MTG-*/extraction-notes.yaml
-    summary: Pass 3 の欠落ガードの理由。何も起こさなかった論点の説明
-    keys:
-      meeting:                 { in: "", description: "会議の ID" }
-      notes:                   { in: "", description: "LOG ごとの記録の配列" }
-      log:                     { in: "notes[]", description: "対象の LOG" }
-      extraction_empty_reason: { in: "notes[]", description: "何も起こさなかった理由（1行）" }
-      review_required:         { in: "notes[]", description: "判断がついていない印（true なら lint が鳴らし続ける）" }
-
-  unknown-terms:
-    path: meetings/MTG-*/unknown-terms.yaml
-    summary: Pass 2 の出力。未知語の候補（`kime unknown-terms` が数える）
-    keys:
-      meeting:       { in: "", description: "会議の ID" }
-      unknown_terms: { in: "", description: "未知語の配列" }
-      語:            { in: "unknown_terms[]", description: "文字起こしに出た表記" }
-      出現回数:      { in: "unknown_terms[]", description: "この会議での出現回数" }
-      初出:          { in: "unknown_terms[]", description: "最初に出た LOG" }
-      文脈:          { in: "unknown_terms[]", description: "最初に出た発言" }
-      推定:          { in: "unknown_terms[]", description: "何の表記崩れかの推定" }
-
-  promote-candidates:
-    path: meetings/MTG-*/promote-candidates.yaml
-    summary: Pass 4 の出力。制約・前提・用語の昇格候補（承認後は破棄してよい）
-    keys:
-      meeting:                { in: "", description: "会議の ID" }
-      candidates:             { in: "", description: "候補の配列" }
-      summary:                { in: "", description: "候補の種別ごとの件数" }
-      種別:                   { in: "candidates[]", enum: 昇格候補種別, description: "候補の種別" }
-      内容:                   { in: "candidates[]", description: "制約・前提の内容" }
-      種類:                   { in: "candidates[]", enum: 制約種類, description: "制約の種類" }
-      根拠:                   { in: "candidates[]", description: "候補の出どころ（どの決定のどの欄か）" }
-      引用:                   { in: "candidates[]", description: "根拠となる発言の逐語" }
-      derived_from:           { in: "candidates[]", description: "根拠の LOG" }
-      失効条件:               { in: "candidates[]", description: "制約が消える条件" }
-      影響しそうな既存の決定: { in: "candidates[]", description: "制約が効きそうな既存の DEC" }
-      崩れたら見直す決定:     { in: "candidates[]", description: "前提が崩れたときに見直す DEC" }
-      脆弱性:                 { in: "candidates[]", enum: 脆弱性, description: "前提の覆されやすさ" }
-      signpost:               { in: "candidates[]", description: "前提が崩れたと分かる事象または閾値" }
-      対象:                   { in: "candidates[]", description: "表記揺れを足す TERM" }
-      追加する表記:           { in: "candidates[]", description: "足す表記揺れ" }
-      出現回数:               { in: "candidates[]", description: "この会議での出現回数" }
-      正式:                   { in: "candidates[]", description: "用語の正式な表記" }
-      定義案:                 { in: "candidates[]", description: "会議で語られた定義" }
-      初出:                   { in: "candidates[]", description: "最初に出た LOG" }
