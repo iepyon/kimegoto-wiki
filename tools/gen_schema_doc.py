@@ -89,7 +89,7 @@ def render_fields(ontology, type_name):
             if ontology.allows_free_text(type_name, name):
                 values += " / 自由記述"
         elif spec.get("kind") in ("ref", "ref-list"):
-            targets = ontology.relation_range(name) or [spec.get("ref", "")]
+            targets = ontology.ref_targets(type_name, name)
             values = " / ".join("`%s`" % t for t in targets)
         elif spec.get("kind") == "struct-list":
             struct = ontology.structs.get(spec.get("struct"), {})
@@ -278,11 +278,22 @@ CODE_RE = re.compile(r"`([^`\n]+)`")
 PAIR_RE = re.compile(r"^(\w+): (\S+)$")
 # 日本語だけの語（かな・カナ・漢字と長音・々）。英字・空白・記号を含むものは見ない。
 JAPANESE_RE = re.compile(r"^[\u3040-\u30ff\u3400-\u9fff々ー]+$")
+YAML_FENCE_RE = re.compile(r"^```yaml\n(.*?)^```\n", re.DOTALL | re.MULTILINE)
+YAML_KEY_RE = re.compile(r"^[ ]*(?:- )?([^\s#:\-][^:\n]*):(?: |$)", re.MULTILINE)
 
 
 def _prose(text):
     """生成ブロックとコードフェンスを除いた散文。"""
     return FENCE_RE.sub("", BLOCK_RE.sub("", text))
+
+
+def _example_keys(text):
+    """文書自身の ```yaml の例に現れるキー。
+
+    会議ディレクトリの YAML（segments.yaml など）の書式の正本は、それを書くスキルの例。
+    その文書の散文は、自分の例にあるキーに触れてよい。
+    """
+    return {key for block in YAML_FENCE_RE.findall(text) for key in YAML_KEY_RE.findall(block)}
 
 
 def _known_names(ontology):
@@ -335,7 +346,7 @@ def check_prose(text, ontology):
     - `フィールド: 値` … フィールドが宣言され、語彙フィールドなら値が語彙にある
     - 日本語だけの語 … フィールド名・語彙の値・語彙名・型の名前のどれか
     """
-    known = _known_names(ontology)
+    known = _known_names(ontology) | _example_keys(text)
     problems = []
     seen = set()
     for token in CODE_RE.findall(_prose(text)):

@@ -118,35 +118,20 @@ class OntologyIntegrityTest(unittest.TestCase):
             for name, spec in self.o.field_specs(t).items():
                 self.assertIn(spec.get("記入主体"), {"自動", "人間", "導出"}, "%s.%s" % (t, name))
 
-    def test_relations_の_domain_range_は実在の型(self):
-        known = set(self.o.type_names()) | {"MTG", "any"}
-        for name, rel in self.o.relations.items():
-            for side in ("domain", "range"):
-                for t in rel.get(side, []):
-                    self.assertIn(t, known, "%s.%s" % (name, side))
-
-    def test_inverse_は対になっている(self):
-        for name, rel in self.o.relations.items():
-            inverse = rel.get("inverse")
-            if not inverse:
-                continue
-            self.assertIn(inverse, self.o.relations, "%s の inverse %s が宣言されていない" % (name, inverse))
-            self.assertEqual(self.o.inverse_of(inverse), name,
-                             "%s と %s が相互に指していない" % (name, inverse))
-
-    def test_ref_フィールドは_relations_に宣言がある(self):
+    def test_参照フィールドの参照先は実在の型(self):
+        known = set(self.o.type_names()) | {"MTG"}
         for t in self.o.type_names():
-            for name, spec in self.o.field_specs(t).items():
-                if spec.get("kind") in ("ref", "ref-list"):
-                    self.assertIn(name, self.o.relations, "%s.%s" % (t, name))
+            for name, targets in self.o.ref_fields(t):
+                self.assertTrue(targets, "%s.%s に ref が無い" % (t, name))
+                for target in targets:
+                    self.assertIn(target, known, "%s.%s" % (t, name))
 
-    def test_relations_の_domain_と_fields_が一致する(self):
-        for name, rel in self.o.relations.items():
-            for t in rel.get("domain", []):
-                if t == "MTG":
-                    continue
-                self.assertIn(name, self.o.field_specs(t),
-                              "relations の %s が %s の domain だが、%s にフィールドが無い" % (name, t, t))
+    def test_日付の対応は実在の型とフィールドを指す(self):
+        for t, anchors in self.o.meeting_date_anchors.items():
+            self.assertIn(t, self.o.type_names())
+            for which, field in anchors.items():
+                self.assertIn(which, {"first", "last"}, t)
+                self.assertEqual(self.o.field(t, field)["kind"], "date", "%s.%s" % (t, field))
 
     def test_status_implications_は実在の型とフィールドと語彙を指す(self):
         for imp in self.o.status_implications:

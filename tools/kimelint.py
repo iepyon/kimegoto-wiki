@@ -300,26 +300,6 @@ def check_log_ref(ctx):
     return out
 
 
-@check("inverse-sync", WARNING)
-def check_inverse_sync(ctx):
-    """逆リンクの片側だけが埋まっている状態。"""
-    out = []
-    for c in ctx.sound:
-        for name, _ in ctx.o.ref_fields(c.type):
-            inverse = ctx.o.inverse_of(name)
-            if not inverse:
-                continue
-            for ref in c.list(name):
-                other = ctx.wiki.get(ref)
-                if other is None or other.error is not None:
-                    continue
-                if c.id not in other.list(inverse):
-                    out.append(_p(check_inverse_sync, c.id,
-                                  "`%s` は %s を指すが、%s の `%s` に %s が無い"
-                                  % (name, ref, ref, inverse, c.id)))
-    return out
-
-
 @check("resolved-status", ERROR)
 def check_resolved_status(ctx):
     """参照が埋まっているのに状態が追随していない。"""
