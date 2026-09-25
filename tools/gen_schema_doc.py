@@ -222,6 +222,94 @@ def check_samples(text, ontology):
         for key in ontology.required_fields(type_name):
             if key not in data:
                 problems.append("%s のサンプルに必須フィールド `%s` が無い" % (type_name, key))
+        problems.extend(_check_sample_values(type_name, data, ontology))
+    return problems
+
+
+def _check_sample_values(type_name, data, ontology):
+    """語彙フィールドの値が語彙にあるか。空と自由記述を許すフィールドは通す。"""
+    problems = []
+    for key, value in data.items():
+        spec = ontology.field_specs(type_name).get(key, {})
+        enum = spec.get("enum")
+        if enum and value and not ontology.allows_free_text(type_name, key) \
+                and value not in ontology.enum_values(enum):
+            problems.append("%s のサンプルの `%s: %s` は語彙 %s に無い" % (type_name, key, value, enum))
+        if spec.get("kind") == "struct-list" and isinstance(value, list):
+            enums = ontology.structs.get(spec.get("struct"), {}).get("enums", {})
+            for item in value:
+                if not isinstance(item, dict):
+                    continue
+                for sub, sub_enum in enums.items():
+                    if item.get(sub) and item[sub] not in ontology.enum_values(sub_enum):
+                        problems.append("%s のサンプルの `%s[].%s: %s` は語彙 %s に無い"
+                                        % (type_name, key, sub, item[sub], sub_enum))
+    return problems
+
+
+# --------------------------------------------------------- 散文の照合
+
+FENCE_RE = re.compile(r"^```.*?^```\n", re.DOTALL | re.MULTILINE)
+CODE_RE = re.compile(r"`([^`\n]+)`")
+PAIR_RE = re.compile(r"^(\w+): (\S+)$")
+# 日本語だけの語（かな・カナ・漢字と長音・々）。英字・空白・記号を含むものは見ない。
+JAPANESE_RE = re.compile(r"^[\u3040-\u30ff\u3400-\u9fff々ー]+$")
+
+
+def _prose(text):
+    """生成ブロックとコードフェンスを除いた散文。"""
+    return FENCE_RE.sub("", BLOCK_RE.sub("", text))
+
+
+def _known_names(ontology):
+    """散文が日本語だけのコード表記で触れてよい名前。"""
+    names = set(ontology.enums)
+    for values in ontology.enums.values():
+        names.update(values)
+    for type_name in ontology.type_names():
+        names.add(ontology.label(type_name))
+        names.update(ontology.field_specs(type_name))
+    for struct in ontology.structs.values():
+        names.update(struct.get("keys", []))
+    return names
+
+
+def _enum_of_field(ontology, field):
+    """どれかの型でそのフィールドに付いた語彙（無ければ None）。"""
+    for type_name in ontology.type_names():
+        enum = ontology.field_specs(type_name).get(field, {}).get("enum")
+        if enum:
+            return enum
+    for struct in ontology.structs.values():
+        if field in struct.get("enums", {}):
+            return struct["enums"][field]
+    return None
+
+
+def check_prose(text, ontology):
+    """散文中のコード表記が ontology.yaml の名前と食い違っていないか。
+
+    - `フィールド: 値` … フィールドが宣言され、語彙フィールドなら値が語彙にある
+    - 日本語だけの語 … フィールド名・語彙の値・語彙名・型の名前のどれか
+    """
+    known = _known_names(ontology)
+    problems = []
+    seen = set()
+    for token in CODE_RE.findall(_prose(text)):
+        if token in seen:
+            continue
+        seen.add(token)
+        pair = PAIR_RE.match(token)
+        if pair:
+            field, value = pair.groups()
+            if field not in known:
+                problems.append("`%s` のフィールド `%s` が宣言に無い" % (token, field))
+                continue
+            enum = _enum_of_field(ontology, field)
+            if enum and value not in ontology.enum_values(enum):
+                problems.append("`%s` の値 `%s` が語彙 %s に無い" % (token, value, enum))
+        elif JAPANESE_RE.match(token) and token not in known:
+            problems.append("`%s` がフィールド名・語彙のどれにも無い" % token)
     return problems
 
 
@@ -293,6 +381,11 @@ def main(argv=None):
         for p in problems:
             print("サンプル: %s" % p)
         print("サンプル: %d件の食い違い" % len(problems))
+        failed = failed or bool(problems)
+        problems = check_prose(text, ontology)
+        for p in problems:
+            print("散文: %s" % p)
+        print("散文: %d件の食い違い" % len(problems))
         failed = failed or bool(problems)
 
     if args.check_templates:
