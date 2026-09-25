@@ -92,6 +92,14 @@ class CheckTest(unittest.TestCase):
         self.assertIn("status: 確定", problems[0])
         self.assertIn("信頼度: たぶん", problems[1])
 
+    def test_周辺ファイルのキーと語彙は散文で使ってよい(self):
+        text = "`決定権: あり` の役割。`review_required` を立てる。`種別: 新規制約` と `不明`。"
+        self.assertEqual(g.check_prose(text, self.o), [])
+        self.assertEqual(len(g.check_prose("`決定権: 有り`", self.o)), 1)
+
+    def test_スキルと規約の散文に食い違いが無い(self):
+        self.assertEqual(g.check_docs(self.o), [])
+
     def test_schema_md_の散文とサンプルに食い違いが無い(self):
         text = (schema.KIT_ROOT / "schema.md").read_text(encoding="utf-8")
         self.assertEqual(g.check_samples(text, self.o), [])

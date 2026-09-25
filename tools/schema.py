@@ -42,6 +42,8 @@ class Ontology:
         self.assumption_trigger_words = data.get("assumption-trigger-words", [])
         self.unverified_confidence = data.get("unverified-confidence", "")
         self.no_record_value = data.get("no-record-value", "")
+        self.unknown_value = data.get("unknown-value", "")
+        self.files = data.get("files", {})
         self.scope_question = data.get("scope-question", {})
         self.agenda = data.get("agenda", {})
         self._id_res = {t: re.compile(spec["id"]) for t, spec in self.types.items()}
@@ -232,6 +234,20 @@ class Ontology:
     def extract_kinds(self):
         """Pass 3 が最低1件を出す LOG の `種別`（欠落ガード）。"""
         return list(self.spec("LOG").get("extract-kinds", []))
+
+    # ------------------------------------------------------------ 周辺ファイル
+
+    def file_keys(self, file_name):
+        """周辺ファイルのキー宣言。{キー: {in, description, enum?, grants?}}。"""
+        try:
+            return self.files[file_name].get("keys", {})
+        except KeyError:
+            raise SchemaError("未知の周辺ファイル: %s" % file_name) from None
+
+    def grants_authority(self, role_info):
+        """role-mapping の役割の属性が、DEC を確定してよい決定権を持つか。"""
+        spec = self.file_keys("role-mapping").get("決定権", {})
+        return bool(spec.get("grants")) and (role_info or {}).get("決定権") == spec["grants"]
 
     def scope_question_value(self, key):
         """`scope-question` の値。宣言が無ければ止める（既定値で黙って動かさない）。"""

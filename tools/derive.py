@@ -71,7 +71,7 @@ def derived_fields(wiki, type_name, role="", log="", meeting="", kind="", today=
             value = _role_field(wiki, role, source)
             if value:
                 fields["種別"] = value
-        if known and (wiki.role(role) or {}).get("決定権") != "あり":
+        if known and not wiki.ontology.grants_authority(wiki.role(role)):
             notes.append("役割 `%s` は決定権が「あり」ではない。"
                          "この発言だけで DEC を起票しない — Q に落とす" % role)
 

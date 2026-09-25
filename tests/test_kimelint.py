@@ -632,5 +632,15 @@ class SuiteTest(LintTestCase):
         self.assertTrue(all(p.check == "vocab" for p in found))
 
 
+class RoleMappingValuesTest(LintTestCase):
+    def test_決定権の書き損じを止める(self):
+        bad = ROLE_MAPPING.replace("決定権: あり", "決定権: 有り", 1)
+        found = self.assertRaised([LOG], "role-mapping-values", role_mapping=bad)
+        self.assertIn("有り", found[0].message)
+
+    def test_語彙どおりなら鳴らない(self):
+        self.assertQuiet([LOG], "role-mapping-values")
+
+
 if __name__ == "__main__":
     unittest.main()

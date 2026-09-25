@@ -136,12 +136,34 @@ def render_words(ontology, key):
     return "```\n%s\n```" % " / ".join(words)
 
 
+def render_files(ontology, _arg):
+    """周辺ファイル（カードではない YAML）の書式。"""
+    out = []
+    for name, spec in ontology.files.items():
+        out.append("### `%s`" % spec.get("path", name))
+        out.append("")
+        out.append(spec.get("summary", ""))
+        out.append("")
+        out.append("| キー | 場所 | 意味 | 値 |")
+        out.append("|---|---|---|---|")
+        for key, k in ontology.file_keys(name).items():
+            values = "—"
+            if k.get("enum"):
+                values = " / ".join("`%s`" % v for v in ontology.enum_values(k["enum"]))
+            out.append("| `%s` | %s | %s | %s |"
+                       % (key, "`%s`" % k["in"] if k.get("in") else "最上位",
+                          k.get("description", ""), values))
+        out.append("")
+    return "\n".join(out).rstrip("\n")
+
+
 # マーカーの種類 → (ontology, 引数) → 本文。None を返したら未知として触らない。
 RENDERERS = {
     "fields": render_fields,
     "types": render_types,
     "derivation": render_derivation,
     "words": render_words,
+    "files": render_files,
 }
 
 
@@ -273,7 +295,20 @@ def _known_names(ontology):
         names.update(ontology.field_specs(type_name))
     for struct in ontology.structs.values():
         names.update(struct.get("keys", []))
+    for file_name in ontology.files:
+        names.update(ontology.file_keys(file_name))
+    # 議事録・アジェンダの節の見出し（`確認事項` など）
+    for edition in ontology.edition_names():
+        names.update(title for title, _ in ontology.sections_of(edition))
+    names.update(title for _, title, _ in ontology.agenda_sections())
+    names.update(v for v in (ontology.unverified_confidence, ontology.no_record_value,
+                             ontology.unknown_value) if v)
     return names
+
+
+def _file_key_enums(ontology, field):
+    return [k["enum"] for name in ontology.files
+            for key, k in ontology.file_keys(name).items() if key == field and k.get("enum")]
 
 
 def _enums_of_field(ontology, field):
@@ -290,6 +325,7 @@ def _enums_of_field(ontology, field):
     for struct in ontology.structs.values():
         if field in struct.get("enums", {}):
             out.append(struct["enums"][field])
+    out.extend(_file_key_enums(ontology, field))
     return list(dict.fromkeys(out))
 
 
@@ -319,6 +355,23 @@ def check_prose(text, ontology):
         elif JAPANESE_RE.match(token) and token not in known:
             problems.append("`%s` がフィールド名・語彙のどれにも無い" % token)
     return problems
+
+
+# 散文の照合をかける文書。スキルと規約は ontology.yaml の語に触れずには書けないので、
+# schema.md と同じく触れ方を見る。docs/ は経緯の記録で、旧い語が残っているのが正しい。
+DOC_GLOBS = [".claude/skills/*/SKILL.md", "CLAUDE.md", "README.md", "decision-guide.md",
+             "templates/**/*.md"]
+
+
+def check_docs(ontology):
+    """スキル・規約の散文を照合する。[(相対パス, 問題), ...]。"""
+    out = []
+    for pattern in DOC_GLOBS:
+        for path in sorted(schema.KIT_ROOT.glob(pattern)):
+            text = path.read_text(encoding="utf-8")
+            rel = str(path.relative_to(schema.KIT_ROOT))
+            out.extend((rel, p) for p in check_prose(text, ontology))
+    return out
 
 
 def check_templates(ontology):
@@ -394,6 +447,11 @@ def main(argv=None):
         for p in problems:
             print("散文: %s" % p)
         print("散文: %d件の食い違い" % len(problems))
+        failed = failed or bool(problems)
+        problems = check_docs(ontology)
+        for path_, p in problems:
+            print("文書: %s: %s" % (path_, p))
+        print("文書: %d件の食い違い" % len(problems))
         failed = failed or bool(problems)
 
     if args.check_templates:

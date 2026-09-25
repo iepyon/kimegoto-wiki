@@ -35,7 +35,7 @@ def confirm_to(wiki, decision):
         if (wiki.role(role) or {}).get("所属") == want:
             return role
     for name, info in wiki.roles.items():
-        if info.get("所属") == want and info.get("決定権") == "あり":
+        if info.get("所属") == want and o.grants_authority(info):
             return name
     return ""
 
