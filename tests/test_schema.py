@@ -118,6 +118,24 @@ class OntologyIntegrityTest(unittest.TestCase):
             for name, spec in self.o.field_specs(t).items():
                 self.assertIn(spec.get("記入主体"), {"自動", "人間", "導出"}, "%s.%s" % (t, name))
 
+    def test_共通フィールドはどれも使われている(self):
+        raw = schema.parse(self.o.path.read_text(encoding="utf-8"))["fields"]
+        used = {name for specs in raw.values() for name, spec in specs.items()
+                if spec == "common" or (isinstance(spec, dict) and "common" in spec)}
+        self.assertEqual(set(self.o.common_fields), used)
+
+    def test_共通フィールドは展開され_上書きした項目だけが違う(self):
+        self.assertEqual(self.o.field("DEC", "引用"), self.o.common_fields["引用"])
+        con = self.o.field("CON", "引用")
+        self.assertEqual(con["required"], "false")
+        self.assertEqual({k: v for k, v in con.items() if k != "required"},
+                         {k: v for k, v in self.o.common_fields["引用"].items() if k != "required"})
+
+    def test_共通フィールドに無い名前を_common_にすると止める(self):
+        data = {"common-fields": {}, "fields": {"DEC": {"id": "common"}}}
+        with self.assertRaises(schema.SchemaError):
+            schema.Ontology(data, None)
+
     def test_参照フィールドの参照先は実在の型(self):
         known = set(self.o.type_names()) | {"MTG"}
         for t in self.o.type_names():

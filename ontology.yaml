@@ -157,13 +157,27 @@ enums:
 #   free    : true なら enum の値以外も許す（`作らない` の <内容> のため）
 #   description: そのフィールドが何を表すかの1行（schema.md の表に生成される）。
 #             なぜ要るかは書かない（論証は schema.md の散文に置く）
+#
+#   common-fields: 型をまたいで同じ意味を持つフィールドの定義。型の側では
+#             `名前: common` と書く。一部だけ違うなら `{ common: true, required: false }`
+#             のように違う項目だけを書く。名前が同じでも意味が違うもの（title / status /
+#             初出 など）はここに置かない
 # ------------------------------------------------------------
+
+common-fields:
+  id:            { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
+  type:          { kind: text, required: true, 記入主体: 自動, description: "型を表す固定値" }
+  引用:          { kind: quote, required: true, 記入主体: 自動, description: "根拠となる発言の逐語" }
+  信頼度:        { kind: enum, enum: 信頼度, required: true, 記入主体: 自動, description: "引用の裏付けの強さ" }
+  derived_from:  { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
+  議題:          { kind: ref, ref: AGD, required: false, 記入主体: 導出, description: "属する議題" }
+  同一性候補:    { kind: ref-list, ref: [DEC, Q, ACT], required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
 
 fields:
 
   LOG:
-    id:      { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
-    type:    { kind: text, required: true, 記入主体: 自動, description: "型を表す固定値" }
+    id:      common
+    type:    common
     meeting: { kind: ref, ref: MTG, required: true, 記入主体: 自動, description: "この論点を切り出した会議" }
     title:   { kind: text, required: true, 記入主体: 自動, description: "論点の見出し" }
     種別:    { kind: enum, enum: LOG種別, required: true, 記入主体: 自動, description: "論点の性質" }
@@ -171,8 +185,8 @@ fields:
     参加役割: { kind: str-list, required: true, 記入主体: 自動, description: "この論点で発言した役割" }
 
   AGD:
-    id:       { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
-    type:     { kind: text, required: true, 記入主体: 自動, description: "型を表す固定値" }
+    id:       common
+    type:     common
     title:    { kind: text, required: true, 記入主体: 人間, description: "決めたいこと。提起者の言葉のまま" }
     status:   { kind: enum, enum: AGD状態, required: true, 記入主体: 人間, description: "議題の状態" }
     提起者:   { kind: text, required: true, 記入主体: 人間, description: "議題を出した役割" }
@@ -183,20 +197,20 @@ fields:
     決着日:   { kind: date, required: false, 記入主体: 人間, description: "決着・取り下げにした会議の日" }
 
   DEC:
-    id:         { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
-    type:       { kind: text, required: true, 記入主体: 自動, description: "型を表す固定値" }
+    id:         common
+    type:       common
     title:      { kind: text, required: true, 記入主体: 自動, description: "決まったことの要約" }
     status:     { kind: enum, enum: DEC状態, required: true, 記入主体: 自動, description: "決定の状態" }
     決定日:     { kind: date, required: true, 記入主体: 自動, description: "決定した会議の日" }
     決定の所在: { kind: text, required: true, 記入主体: 自動, description: "決めた役割。覆せるのは誰かを表す" }
     会議体:     { kind: text, required: true, 記入主体: 導出, description: "決定した契約上の会議体" }
     種別:       { kind: enum, enum: 決定種別, required: true, 記入主体: 導出, description: "今後変えられるか" }
-    引用:       { kind: quote, required: true, 記入主体: 自動, description: "根拠となる発言の逐語" }
-    信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動, description: "引用の裏付けの強さ" }
-    derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
+    引用:       common
+    信頼度:     common
+    derived_from: common
     スコープ:   { kind: enum, enum: スコープ, required: true, 記入主体: 自動, description: "当初の合意に入っていたか" }
-    議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出, description: "属する議題" }
-    同一性候補: { kind: ref-list, ref: [DEC, Q, ACT], required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
+    議題:       common
+    同一性候補: common
     確定日:     { kind: date, required: false, 記入主体: 人間, description: "顧客提出版を送り、異議なく確定した日" }
     なぜ:       { kind: text, required: false, 記入主体: 人間, description: "決定の理由。人間が言った言葉だけ" }
     受容した不利: { kind: text, required: false, 記入主体: 人間, description: "採った案の不利" }
@@ -206,70 +220,70 @@ fields:
     代替案:     { kind: struct-list, struct: 代替案, required: false, 記入主体: 自動, description: "検討して採らなかった案と却下理由" }
 
   Q:
-    id:         { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
-    type:       { kind: text, required: true, 記入主体: 自動, description: "型を表す固定値" }
+    id:         common
+    type:       common
     title:      { kind: text, required: true, 記入主体: 自動, description: "決めるために足りないこと" }
     status:     { kind: enum, enum: Q状態, required: true, 記入主体: 自動, description: "未定事項の状態" }
     確認先:     { kind: text, required: true, 記入主体: 自動, description: "回答を待っている役割" }
     対立当事者: { kind: str-list, required: false, 記入主体: 自動, description: "意見が合っていない役割" }
     初出:       { kind: date, required: true, 記入主体: 自動, description: "最初に出た会議の日" }
     最終言及:   { kind: date, required: true, 記入主体: 自動, description: "最後に言及された会議の日" }
-    引用:       { kind: quote, required: true, 記入主体: 自動, description: "根拠となる発言の逐語" }
-    信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動, description: "引用の裏付けの強さ" }
-    derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
+    引用:       common
+    信頼度:     common
+    derived_from: common
     resolved_by: { kind: ref, ref: DEC, required: false, 記入主体: 自動, description: "この問いを解決した決定" }
-    議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出, description: "属する議題" }
-    同一性候補: { kind: ref-list, ref: [DEC, Q, ACT], required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
+    議題:       common
+    同一性候補: common
 
   ACT:
-    id:         { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
-    type:       { kind: text, required: true, 記入主体: 自動, description: "型を表す固定値" }
+    id:         common
+    type:       common
     title:      { kind: text, required: true, 記入主体: 自動, description: "やること" }
     担当:       { kind: text, required: false, 記入主体: 人間, description: "担う会社（社名）" }
     期限:       { kind: date, required: false, 記入主体: 人間, description: "期日" }
     status:     { kind: enum, enum: ACT状態, required: true, 記入主体: 人間, description: "アクションの状態" }
     対策種別:   { kind: enum, enum: 対策種別, required: false, 記入主体: 自動, description: "前提（ASM）への働きかけの種類" }
-    引用:       { kind: quote, required: true, 記入主体: 自動, description: "根拠となる発言の逐語" }
-    信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動, description: "引用の裏付けの強さ" }
-    derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
+    引用:       common
+    信頼度:     common
+    derived_from: common
     関連:       { kind: ref-list, ref: [DEC, Q, CON, ASM], required: false, 記入主体: 自動, description: "関係するカード" }
     更新履歴:   { kind: struct-list, struct: 更新履歴, required: false, 記入主体: 人間, description: "日付ごとの状態の変化" }
     issue:      { kind: text, required: false, 記入主体: 導出, description: "起票した GitHub Issue" }
-    議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出, description: "属する議題" }
-    同一性候補: { kind: ref-list, ref: [DEC, Q, ACT], required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
+    議題:       common
+    同一性候補: common
 
   CON:
-    id:         { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
-    type:       { kind: text, required: true, 記入主体: 自動, description: "型を表す固定値" }
+    id:         common
+    type:       common
     内容:       { kind: text, required: true, 記入主体: 自動, description: "制約の内容" }
     種類:       { kind: enum, enum: 制約種類, required: true, 記入主体: 自動, description: "環境の事実か、相手方への期待か" }
     所在:       { kind: enum, enum: 所在, required: true, 記入主体: 導出, description: "制約を持つ側" }
     硬度:       { kind: enum, enum: 硬度, required: true, 記入主体: 導出, description: "どれだけ覆しにくいか" }
     失効条件:   { kind: text, required: false, 記入主体: 自動, description: "制約が消える条件" }
     影響する決定: { kind: ref-list, ref: DEC, required: false, 記入主体: 自動, description: "この制約が効く決定" }
-    derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
-    引用:       { kind: quote, required: false, 記入主体: 自動, description: "根拠となる発言の逐語" }
-    信頼度:     { kind: enum, enum: 信頼度, required: false, 記入主体: 自動, description: "引用の裏付けの強さ" }
+    derived_from: common
+    引用:       { common: true, required: false }
+    信頼度:     { common: true, required: false }
     承認:       { kind: date, required: true, 記入主体: 人間, description: "昇格を承認した日" }
     status:     { kind: enum, enum: ストック状態, required: true, 記入主体: 人間, description: "制約の状態" }
 
   ASM:
-    id:         { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
-    type:       { kind: text, required: true, 記入主体: 自動, description: "型を表す固定値" }
+    id:         common
+    type:       common
     内容:       { kind: text, required: true, 記入主体: 自動, description: "前提の内容" }
     崩れたら見直す決定: { kind: ref-list, ref: DEC, required: false, 記入主体: 自動, description: "前提が崩れたときに見直す決定" }
     脆弱性:     { kind: enum, enum: 脆弱性, required: true, 記入主体: 自動, description: "覆されやすさ" }
     signpost:   { kind: text, required: false, 記入主体: 自動, description: "前提が崩れたと分かる事象または閾値" }
     次回確認日: { kind: date, required: false, 記入主体: 人間, description: "次に確かめる日" }
-    引用:       { kind: quote, required: true, 記入主体: 自動, description: "根拠となる発言の逐語" }
-    信頼度:     { kind: enum, enum: 信頼度, required: true, 記入主体: 自動, description: "引用の裏付けの強さ" }
-    derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
+    引用:       common
+    信頼度:     common
+    derived_from: common
     最終確認:   { kind: date, required: true, 記入主体: 人間, description: "最後に確かめた日" }
     status:     { kind: enum, enum: ASM状態, required: true, 記入主体: 人間, description: "前提の状態" }
 
   TERM:
-    id:       { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
-    type:     { kind: text, required: true, 記入主体: 自動, description: "型を表す固定値" }
+    id:       common
+    type:     common
     正式:     { kind: text, required: true, 記入主体: 自動, description: "正式な表記" }
     読み:     { kind: text, required: false, 記入主体: 人間, description: "読み方" }
     表記揺れ: { kind: str-list, required: false, 記入主体: 自動, description: "文字起こしに実際に出た誤表記" }

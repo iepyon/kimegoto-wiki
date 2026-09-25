@@ -29,7 +29,9 @@ class Ontology:
         self.types = data.get("types", {})
         self.meetings = data.get("meetings", {})
         self.enums = data.get("enums", {})
-        self.fields = data.get("fields", {})
+        self.common_fields = data.get("common-fields", {})
+        self.fields = {t: {name: self._resolve_field(t, name, spec) for name, spec in specs.items()}
+                       for t, specs in data.get("fields", {}).items()}
         self.structs = data.get("structs", {})
         self.status_implications = data.get("status-implications", [])
         self.derivations = data.get("derivations", {})
@@ -86,6 +88,21 @@ class Ontology:
         return int(m.group(1)) if m else None
 
     # -------------------------------------------------------- フィールド
+
+    def _resolve_field(self, type_name, name, spec):
+        """`名前: common` を common-fields の定義に展開する。
+
+        `{ common: true, required: false }` なら、共通の定義に書いた項目だけを上書きする。
+        """
+        if spec == "common":
+            override = {}
+        elif isinstance(spec, dict) and str(spec.get("common", "")).lower() == "true":
+            override = {k: v for k, v in spec.items() if k != "common"}
+        else:
+            return spec
+        if name not in self.common_fields:
+            raise SchemaError("%s.%s は common だが common-fields に無い" % (type_name, name))
+        return {**self.common_fields[name], **override}
 
     def field_specs(self, type_name):
         return self.fields.get(type_name, {})
