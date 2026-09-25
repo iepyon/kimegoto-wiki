@@ -25,6 +25,16 @@ class OntologyIntegrityTest(unittest.TestCase):
         self.assertEqual(keys[0], "why-missing", "冒頭は `なぜ` 未記入の決定")
         self.assertIn("agenda-items", keys)
 
+    def test_すべての型に_summary_がある(self):
+        # schema.md の型一覧はここから生成する。空だと表に穴が開く。
+        for t in self.o.type_names():
+            self.assertTrue(self.o.spec(t).get("summary"), "%s の summary が無い" % t)
+
+    def test_すべてのフィールドに_description_がある(self):
+        for t in self.o.type_names():
+            for name, spec in self.o.field_specs(t).items():
+                self.assertTrue(spec.get("description"), "%s.%s の description が無い" % (t, name))
+
     def test_すべての型にフィールド宣言がある(self):
         for t in self.o.type_names():
             self.assertTrue(self.o.field_specs(t), "%s のフィールド宣言が無い" % t)
