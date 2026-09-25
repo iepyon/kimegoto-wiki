@@ -48,6 +48,18 @@ class OntologyIntegrityTest(unittest.TestCase):
         self.assertIn(self.o.unverified_confidence, self.o.enum_values("信頼度"))
         self.assertIn(self.o.no_record_value, self.o.enum_values("作らない"))
 
+    def test_周辺ファイルの宣言が自己整合している(self):
+        for name in self.o.files:
+            for key, k in self.o.file_keys(name).items():
+                self.assertTrue(k.get("description"), "%s.%s の description が無い" % (name, key))
+                if k.get("enum"):
+                    values = self.o.enum_values(k["enum"])
+                    if k.get("grants"):
+                        self.assertIn(k["grants"], values, "%s.%s の grants" % (name, key))
+        self.assertTrue(self.o.grants_authority({"決定権": "あり"}))
+        self.assertFalse(self.o.grants_authority({"決定権": "なし"}))
+        self.assertFalse(self.o.grants_authority(None))
+
     def test_すべてのフィールドに_description_がある(self):
         for t in self.o.type_names():
             for name, spec in self.o.field_specs(t).items():

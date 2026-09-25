@@ -153,6 +153,8 @@ enums:
   硬度: [溶液, 懸濁, 沈殿, 岩盤]
   脆弱性: [高, 中, 低]
   対策種別: [shaping, hedging]
+  決定権: [あり, なし]
+  昇格候補種別: [新規制約, 既存制約への紐づけ, 新規前提, 表記揺れの追記, 新規用語]
 
 # ------------------------------------------------------------
 # フィールド
@@ -202,6 +204,7 @@ fields:
     derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
     スコープ:   { kind: enum, enum: スコープ, required: true, 記入主体: 自動, description: "当初の合意に入っていたか" }
     議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出, description: "属する議題" }
+    同一性候補: { kind: ref-list, ref: any, required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
     確定日:     { kind: date, required: false, 記入主体: 人間, description: "顧客提出版を送り、異議なく確定した日" }
     なぜ:       { kind: text, required: false, 記入主体: 人間, description: "決定の理由。人間が言った言葉だけ" }
     受容した不利: { kind: text, required: false, 記入主体: 人間, description: "採った案の不利" }
@@ -224,6 +227,7 @@ fields:
     derived_from: { kind: ref-list, ref: LOG, required: true, 記入主体: 自動, description: "根拠の LOG" }
     resolved_by: { kind: ref, ref: DEC, required: false, 記入主体: 自動, description: "この問いを解決した決定" }
     議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出, description: "属する議題" }
+    同一性候補: { kind: ref-list, ref: any, required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
 
   ACT:
     id:         { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
@@ -240,6 +244,7 @@ fields:
     更新履歴:   { kind: struct-list, struct: 更新履歴, required: false, 記入主体: 人間, description: "日付ごとの状態の変化" }
     issue:      { kind: text, required: false, 記入主体: 導出, description: "起票した GitHub Issue" }
     議題:       { kind: ref, ref: AGD, required: false, 記入主体: 導出, description: "属する議題" }
+    同一性候補: { kind: ref-list, ref: any, required: false, 記入主体: 自動, description: "同じものかもしれない既存のカード（Pass 3 が同一と確信できなかったときに付ける）" }
 
   CON:
     id:         { kind: id, required: true, 記入主体: 自動, description: "カードの ID。ファイル名と一致させる" }
@@ -316,6 +321,7 @@ relations:
   意味が確定した決定: { domain: [TERM], range: [DEC] }
   meeting:            { domain: [LOG], range: [MTG] }
   議題:               { domain: [DEC, Q, ACT], range: [AGD] }
+  同一性候補:         { domain: [DEC, Q, ACT], range: [DEC, Q, ACT] }
 
 # ------------------------------------------------------------
 # 導出される関係
@@ -519,6 +525,10 @@ unverified-confidence: 推測
 # 「確認したが記録が無い」を残す。集計ではこの値と空欄を「記録されていない」として数える。
 no-record-value: 記録なし
 
+# 手掛かりが無いことを表す値。昇格候補の `失効条件`・`signpost`・`定義案` や、
+# 未登録の役割の `所属`・`社名` に入る。空欄（まだ見ていない）とは区別する。
+unknown-value: 不明
+
 # 「前向きに検討します」の類。DEC ではなく Q に落とすべき表現。
 # decision-guide.md の境界例に対応する。
 deferral-phrases: [前向きに検討, 持ち帰り, 持ち帰ります, 調整します, 一旦置い, 検討します]
@@ -550,3 +560,93 @@ scope-question:
 #   DEC の `なぜ` と `代替案[].却下理由` を走査する。
 #   検出は機械、昇格の可否は人間（`kime promote-input` が印を付けるだけ）。
 assumption-trigger-words: [今は, 当面, のうちは, 現状, いまのところ, 今回は, 初期は, とりあえず, 一旦, 今のフェーズ, 規模なので]
+
+# ------------------------------------------------------------
+# 周辺ファイル
+#   カードではないが、機械とスキルが読み書きする YAML の書式。
+#   schema.md の「周辺ファイル」節に生成され、スキルの散文の照合にも使う。
+#
+#   path   : 置き場所（案件のルートからの相対）
+#   keys   : キー → { in, description, enum?, grants? }
+#     in      : 親の位置。"" は最上位、`roles.*` は roles の各要素、`segments[]` は配列の各要素
+#     grants  : （決定権のみ）DEC を確定してよいことを表す値
+# ------------------------------------------------------------
+
+files:
+
+  role-mapping:
+    path: role-mapping.yaml
+    summary: 役割 → 所属・社名・決定権。案件ごとに持ち、キットのルートにフォールバックしない
+    keys:
+      meta:                 { in: "", description: "案件の情報" }
+      project:              { in: meta, description: "案件名" }
+      自社:                 { in: meta, description: "自社の社名" }
+      顧客:                 { in: meta, description: "顧客の社名" }
+      協力会社:             { in: meta, description: "協力会社の社名の配列" }
+      会議体:               { in: meta, description: "契約上の会議体名。DEC の `会議体` はここから導出する" }
+      roles:                { in: "", description: "役割名 → 役割の属性" }
+      unknown_role_default: { in: "", description: "未登録の役割に当てる属性" }
+      所属:                 { in: "roles.*", description: "役割の側（CON の `所在` はここから導出する）" }
+      社名:                 { in: "roles.*", description: "役割の会社名（ACT の `担当` はここから導出する）" }
+      決定権:               { in: "roles.*", enum: 決定権, grants: あり, description: "この役割の発言で DEC を確定してよいか" }
+      決定の種別:           { in: "roles.*", enum: 決定種別, description: "この役割が決めたことの種別（DEC の `種別` はここから導出する）" }
+
+  segments:
+    path: meetings/MTG-*/segments.yaml
+    summary: Pass 1 の出力。論点の切り出し
+    keys:
+      meeting:  { in: "", description: "会議の ID" }
+      segments: { in: "", description: "論点の配列" }
+      seq:      { in: "segments[]", description: "論点の通し番号（1から連番）" }
+      title:    { in: "segments[]", description: "論点の見出し" }
+      種別:     { in: "segments[]", enum: LOG種別, description: "論点の性質" }
+      時刻:     { in: "segments[]", description: "文字起こし上の開始・終了時刻" }
+      参加役割: { in: "segments[]", description: "この論点で発言した役割" }
+      議題:     { in: "segments[]", description: "論点が扱った議題（AGD）" }
+
+  extraction-notes:
+    path: meetings/MTG-*/extraction-notes.yaml
+    summary: Pass 3 の欠落ガードの理由。何も起こさなかった論点の説明
+    keys:
+      meeting:                 { in: "", description: "会議の ID" }
+      notes:                   { in: "", description: "LOG ごとの記録の配列" }
+      log:                     { in: "notes[]", description: "対象の LOG" }
+      extraction_empty_reason: { in: "notes[]", description: "何も起こさなかった理由（1行）" }
+      review_required:         { in: "notes[]", description: "判断がついていない印（true なら lint が鳴らし続ける）" }
+
+  unknown-terms:
+    path: meetings/MTG-*/unknown-terms.yaml
+    summary: Pass 2 の出力。未知語の候補（`kime unknown-terms` が数える）
+    keys:
+      meeting:       { in: "", description: "会議の ID" }
+      unknown_terms: { in: "", description: "未知語の配列" }
+      語:            { in: "unknown_terms[]", description: "文字起こしに出た表記" }
+      出現回数:      { in: "unknown_terms[]", description: "この会議での出現回数" }
+      初出:          { in: "unknown_terms[]", description: "最初に出た LOG" }
+      文脈:          { in: "unknown_terms[]", description: "最初に出た発言" }
+      推定:          { in: "unknown_terms[]", description: "何の表記崩れかの推定" }
+
+  promote-candidates:
+    path: meetings/MTG-*/promote-candidates.yaml
+    summary: Pass 4 の出力。制約・前提・用語の昇格候補（承認後は破棄してよい）
+    keys:
+      meeting:                { in: "", description: "会議の ID" }
+      candidates:             { in: "", description: "候補の配列" }
+      summary:                { in: "", description: "候補の種別ごとの件数" }
+      種別:                   { in: "candidates[]", enum: 昇格候補種別, description: "候補の種別" }
+      内容:                   { in: "candidates[]", description: "制約・前提の内容" }
+      種類:                   { in: "candidates[]", enum: 制約種類, description: "制約の種類" }
+      根拠:                   { in: "candidates[]", description: "候補の出どころ（どの決定のどの欄か）" }
+      引用:                   { in: "candidates[]", description: "根拠となる発言の逐語" }
+      derived_from:           { in: "candidates[]", description: "根拠の LOG" }
+      失効条件:               { in: "candidates[]", description: "制約が消える条件" }
+      影響しそうな既存の決定: { in: "candidates[]", description: "制約が効きそうな既存の DEC" }
+      崩れたら見直す決定:     { in: "candidates[]", description: "前提が崩れたときに見直す DEC" }
+      脆弱性:                 { in: "candidates[]", enum: 脆弱性, description: "前提の覆されやすさ" }
+      signpost:               { in: "candidates[]", description: "前提が崩れたと分かる事象または閾値" }
+      対象:                   { in: "candidates[]", description: "表記揺れを足す TERM" }
+      追加する表記:           { in: "candidates[]", description: "足す表記揺れ" }
+      出現回数:               { in: "candidates[]", description: "この会議での出現回数" }
+      正式:                   { in: "candidates[]", description: "用語の正式な表記" }
+      定義案:                 { in: "candidates[]", description: "会議で語られた定義" }
+      初出:                   { in: "candidates[]", description: "最初に出た LOG" }

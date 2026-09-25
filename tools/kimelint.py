@@ -571,6 +571,30 @@ def check_role_mapping(ctx):
                "（`cp templates/project/role-mapping.yaml <案件>/` で置く）")]
 
 
+@check("role-mapping-values", ERROR)
+def check_role_mapping_values(ctx):
+    """role-mapping.yaml の役割の属性が語彙にあるか（`ontology.yaml` の `files.role-mapping`）。
+
+    `決定権: 有り` のような書き損じは、「決定権なし」として黙って扱われ、
+    その役割の決定が全部 Q に落ちる。読み違えではなく書き損じとして止める。
+    """
+    if not ctx.wiki.has_role_mapping:
+        return []
+    specs = {key: k["enum"] for key, k in ctx.o.file_keys("role-mapping").items()
+             if k.get("in") == "roles.*" and k.get("enum")}
+    rows = dict(ctx.wiki.roles)
+    rows["unknown_role_default"] = ctx.wiki.role_mapping.get("unknown_role_default") or {}
+    out = []
+    for role, info in rows.items():
+        for key, enum in specs.items():
+            value = (info or {}).get(key)
+            if value and value not in ctx.o.enum_values(enum):
+                out.append(_p(check_role_mapping_values, "role-mapping.yaml",
+                              "役割 `%s` の `%s: %s` が語彙 %s に無い（%s）"
+                              % (role, key, value, enum, " / ".join(ctx.o.enum_values(enum)))))
+    return out
+
+
 @check("role-unknown", WARNING)
 def check_role_unknown(ctx):
     """role-mapping.yaml に無い役割。②の確認で追記する。"""
@@ -600,7 +624,7 @@ def check_decision_authority(ctx):
         role = c.get("決定の所在")
         if not role or not ctx.wiki.is_known_role(role):
             continue
-        if ctx.wiki.role(role).get("決定権") != "あり":
+        if not ctx.o.grants_authority(ctx.wiki.role(role)):
             out.append(_p(check_decision_authority, c.id,
                           "`決定の所在` の %s は決定権を持たない（Q に落とすべき）" % role))
     return out

@@ -45,8 +45,8 @@ if echo "$staged" | grep -qE '^(tools|tests)/'; then
     python3 -m unittest discover -s tests -q
 fi
 
-# 2. ontology.yaml / 雛形を触ったら生成物と雛形の鮮度
-if echo "$staged" | grep -qE '^(ontology\.yaml|templates/|schema\.md)'; then
+# 2. ontology.yaml / 雛形 / 語彙に触れる文書を触ったら、生成物の鮮度と散文の照合
+if echo "$staged" | grep -qE '^(ontology\.yaml|templates/|schema\.md|\.claude/skills/|CLAUDE\.md|README\.md|decision-guide\.md)'; then
     echo "pre-commit: schema.md と雛形の同期"
     python3 tools/kime.py schema --check --check-samples --check-templates
 fi
