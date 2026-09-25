@@ -189,7 +189,7 @@ def _guessed(ctx):
     """`信頼度: 推測` のカード。人間が確認するまで昇格させない。"""
     rows = []
     for c in sorted(ctx.of("DEC", "Q", "ACT", "CON", "ASM"), key=lambda c: (c.type, c.id)):
-        if c.get("信頼度") == "推測":
+        if c.get("信頼度") == ctx.o.unverified_confidence:
             rows.append([c.id, ctx.o.label(c.type), ctx.head(c), c.get("引用")])
     return _table(["ID", "種別", "内容", "引用"], rows), len(rows)
 
@@ -198,7 +198,7 @@ def _unconfirmed(ctx):
     """みなし確定の書き戻し待ち。"""
     rows = [[c.id, ctx.head(c), c.get("決定日"), c.get("会議体")]
             for c in sorted(ctx.of("DEC"), key=lambda c: c.id)
-            if c.get("status") == "決定" and not c.get("確定日")]
+            if ctx.wiki.is_active(c) and not c.get("確定日")]
     return _table(["ID", "決定", "決定日", "会議体"], rows), len(rows)
 
 
@@ -318,11 +318,11 @@ def view_metrics(ctx):
     with_why = sum(1 for c in decisions if c.get("なぜ"))
     alternatives = [row for c in decisions for row in c.structs("代替案")
                     if isinstance(row, dict)]
-    no_reason = sum(1 for row in alternatives if row.get("却下理由") == "記録なし")
-    silent_alt = sum(1 for row in alternatives if row.get("信頼度") == "推測")
+    no_reason = sum(1 for row in alternatives if row.get("却下理由") == ctx.o.no_record_value)
+    silent_alt = sum(1 for row in alternatives if row.get("信頼度") == ctx.o.unverified_confidence)
     guessed = sum(1 for c in ctx.of("DEC", "Q", "ACT", "CON", "ASM")
-                  if c.get("信頼度") == "推測")
-    broken_asm = sum(1 for c in ctx.of("ASM") if c.get("status") == "崩れた")
+                  if c.get("信頼度") == ctx.o.unverified_confidence)
+    broken_asm = sum(1 for c in ctx.of("ASM") if c.get("status") == "崩れた")  # 直書き: 指標で数えるのはこの status だけ
     derived = sum(1 for c in ctx.of("DEC") if c.get("確定日"))
 
     def pct(a, b):
@@ -334,9 +334,8 @@ def view_metrics(ctx):
 
     out.append(_section("土台", _table(["指標", "値"], [
         ["決定", n_dec],
-        ["未決の問い（未決のみ）", sum(1 for c in ctx.of("Q") if c.get("status") == "未決")],
-        ["未完了のアクション", sum(1 for c in ctx.of("ACT")
-                                   if c.get("status") not in ("完了", "取り下げ"))],
+        ["未決の問い（未決のみ）", sum(1 for c in ctx.of("Q") if ctx.wiki.is_open(c))],
+        ["未完了のアクション", sum(1 for c in ctx.of("ACT") if ctx.wiki.is_open(c))],
         ["`確定日` が入った決定", pct(derived, n_dec)],
     ])))
 

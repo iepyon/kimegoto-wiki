@@ -28,8 +28,6 @@ CONF_LINE = re.compile(r"^(?P<indent>\s*)(?:-\s+)?信頼度\s*[:：]\s*(?P<value
 # 括弧・引用符・空白・文末記号だけを除去して比較する。
 STRIP = re.compile(r"[\s「」『』【】（）()\[\]｛｝{}、。，．,\.!?！？…‥\"'`]")
 
-GUESS = "推測"
-
 # status の意味
 OK = "ok"                 # LOG 本文に見つかった
 FAIL = "fail"             # 見つからず、信頼度が 推測 でもない（= 要修正）
@@ -116,8 +114,11 @@ def _normalized_logs(wiki):
             for log in wiki.by_type("LOG")}
 
 
-def _examine(card, lines, logs):
-    """1枚分の照合。書き換えはしない。(QuoteIssue, 信頼度の行番号) の列を返す。"""
+def _examine(card, lines, logs, guess):
+    """1枚分の照合。書き換えはしない。(QuoteIssue, 信頼度の行番号) の列を返す。
+
+    `guess` は照合できなかった印の `信頼度`（`ontology.yaml` の `unverified-confidence`）。
+    """
     fm = _frontmatter_range(lines)
     if not fm:
         return []
@@ -146,7 +147,7 @@ def _examine(card, lines, logs):
         detail = "参照先 %s の本文に見つからない" % " / ".join(referenced)
         if missing:
             detail += "（LOG カード自体が見つからない: %s）" % ", ".join(missing)
-        status = ALREADY_GUESS if confidence == GUESS else FAIL
+        status = ALREADY_GUESS if confidence == guess else FAIL
         out.append((QuoteIssue(card, line_idx + 1, quote, confidence, status, detail), conf_idx))
     return out
 
@@ -159,20 +160,20 @@ def check(wiki):
         if card.error is not None:
             continue
         lines = card.path.read_text(encoding="utf-8").splitlines()
-        out.extend(issue for issue, _ in _examine(card, lines, logs))
+        out.extend(issue for issue, _ in _examine(card, lines, logs, wiki.ontology.unverified_confidence))
     return out
 
 
-def fix_card(card, logs):
+def fix_card(card, logs, guess):
     """1枚を降格して書き戻す。(降格件数, QuoteIssue の列)。"""
     lines = card.path.read_text(encoding="utf-8").splitlines()
-    results = _examine(card, lines, logs)
+    results = _examine(card, lines, logs, guess)
     fixed = 0
     for issue, conf_idx in results:
         if issue.status != FAIL or conf_idx is None:
             continue
         m = CONF_LINE.match(lines[conf_idx])
-        lines[conf_idx] = lines[conf_idx][:m.start("value")] + GUESS
+        lines[conf_idx] = lines[conf_idx][:m.start("value")] + guess
         issue.status = FIXED
         fixed += 1
     if fixed:
@@ -187,7 +188,7 @@ def fix(wiki):
     for card in wiki.cards:
         if card.error is not None:
             continue
-        count, found = fix_card(card, logs)
+        count, found = fix_card(card, logs, wiki.ontology.unverified_confidence)
         total += count
         issues.extend(found)
     return total, issues

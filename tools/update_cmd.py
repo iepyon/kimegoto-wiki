@@ -179,11 +179,11 @@ def main_confirm(argv=None):
         print("--sent は YYYY-MM-DD で渡す", file=sys.stderr)
         return 1
 
-    days = wiki.ontology.thresholds.get("deemed-confirmation-business-days", 3)
-    due = business_days_after(sent, int(days))
+    days = wiki.ontology.threshold("deemed-confirmation-business-days")
+    due = business_days_after(sent, days)
 
     targets = [c for c in wiki.cards_of_meeting(args.meeting, "DEC")
-               if not c.get("確定日") and c.get("status") == "決定"]
+               if not c.get("確定日") and wiki.is_active(c)]
     if not targets:
         print("対象なし（%s）" % args.meeting)
         return 0

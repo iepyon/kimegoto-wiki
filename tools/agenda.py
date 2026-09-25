@@ -50,30 +50,22 @@ def _sound(wiki, *types):
 
 def why_missing(wiki):
     return sorted((c for c in _sound(wiki, "DEC")
-                   if not c.get("なぜ") and c.get("status") != "覆された"),
+                   if not c.get("なぜ") and wiki.is_open(c)),
                   key=lambda c: c.id)
 
 
-def is_open_action(card):
-    return card.get("status") not in ("完了", "取り下げ")
-
-
-def is_open_question(card):
-    return card.get("status") == "未決"
-
-
 def open_actions(wiki):
-    return sorted((c for c in _sound(wiki, "ACT") if is_open_action(c)), key=lambda c: c.id)
+    return sorted((c for c in _sound(wiki, "ACT") if wiki.is_open(c)), key=lambda c: c.id)
 
 
 def open_questions(wiki):
-    return sorted((c for c in _sound(wiki, "Q") if is_open_question(c)), key=lambda c: c.id)
+    return sorted((c for c in _sound(wiki, "Q") if wiki.is_open(c)), key=lambda c: c.id)
 
 
 def fragile_assumptions(wiki):
     """棚卸しの対象になる前提だけ。全件は追跡しない（2週25分では破綻する）。"""
     return sorted((c for c in _sound(wiki, "ASM")
-                   if c.get("status") == "有効" and c.get("脆弱性") == "高"
+                   if wiki.is_active(c) and c.get("脆弱性") in wiki.ontology.tracked_vulnerability()
                    and c.list("崩れたら見直す決定")),
                   key=lambda c: c.id)
 
@@ -114,9 +106,9 @@ def agenda_items(wiki, meeting_id=None):
         children = wiki.children_of(card)
         out.append(Item(
             card, carried,
-            [c for c in children if c.type == "DEC" and c.get("status") != "覆された"],
-            [c for c in children if c.type == "Q" and is_open_question(c)],
-            [c for c in children if c.type == "ACT" and is_open_action(c)],
+            [c for c in children if c.type == "DEC" and wiki.is_open(c)],
+            [c for c in children if c.type == "Q" and wiki.is_open(c)],
+            [c for c in children if c.type == "ACT" and wiki.is_open(c)],
             history(wiki, card, meeting_id) if carried else ""))
     return out
 

@@ -19,7 +19,6 @@ from tools import agenda, agenda_sync_cmd, kimelint, quotes, schema, scope_cmd
 from tools.cards import Wiki, resolve_root
 
 FLOW_TYPES = ("DEC", "Q", "ACT", "CON", "ASM")
-EXTRACT_KINDS = ("議論", "確認")      # Pass 3 が最低1件を出す論点の種別（欠落ガード）
 
 
 class Status:
@@ -78,7 +77,7 @@ class Status:
         for c in w.by_type(*FLOW_TYPES):
             referenced.update(c.list("derived_from"))
         notes = w.extraction_notes
-        targets = [log for log in logs if log.get("種別") in EXTRACT_KINDS]
+        targets = [log for log in logs if log.get("種別") in w.ontology.extract_kinds()]
         remaining = [log.id for log in targets
                      if log.id not in referenced and log.id not in notes]
         waiting = [log.id for log in targets
@@ -115,9 +114,9 @@ class Status:
         pending = scope_cmd.pending_scope(w)
         decisions = [c for c in current if c.type == "DEC"]
         n_scope = sum(1 for c in decisions if c.get("スコープ") == pending)
-        n_guess = sum(1 for c in current if c.get("信頼度") == quotes.GUESS)
+        n_guess = sum(1 for c in current if c.get("信頼度") == w.ontology.unverified_confidence)
         n_why = sum(1 for c in decisions if not c.get("なぜ"))
-        open_acts = [c for c in w.by_type("ACT") if c.error is None and agenda.is_open_action(c)]
+        open_acts = [c for c in w.by_type("ACT") if c.error is None and w.is_open(c)]
         n_blank = sum(1 for c in open_acts if not c.get("担当") or not c.get("期限"))
         n_agd = len(self.agenda_items())
         left = n_scope + n_guess + n_why + n_blank + n_agd
@@ -157,9 +156,8 @@ def next_agenda_line(wiki):
     """次回アジェンダの見出し行。中身は `kime agenda-input`。"""
     items = agenda.agenda_items(wiki)
     carried = sum(1 for item in items if item.carried)
-    why_missing = [c for c in wiki.by_type("DEC")
-                   if c.error is None and c.get("status") != "覆された" and not c.get("なぜ")]
-    acts = [c for c in wiki.by_type("ACT") if c.error is None and agenda.is_open_action(c)]
+    why_missing = agenda.why_missing(wiki)
+    acts = agenda.open_actions(wiki)
     return ("議題 %d（持ち越し %d）/ `なぜ` が未記入の決定 %d / 未完了アクション %d"
             % (len(items), carried, len(why_missing), len(acts)))
 

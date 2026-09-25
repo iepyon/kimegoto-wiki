@@ -103,13 +103,15 @@ def render_fields(ontology, type_name):
 
 
 def render_types(ontology, _arg):
-    rows = ["| 層 | 型 | 名前 | ID 形式 | 何を表すか |", "|---|---|---|---|---|"]
+    rows = ["| 層 | 型 | 名前 | ID 形式 | 何を表すか | 閉じた status |",
+            "|---|---|---|---|---|---|"]
     for type_name in ontology.type_names():
         spec = ontology.spec(type_name)
-        rows.append("| %s | %s | %s | `%s` | %s |"
+        closed = " / ".join("`%s`" % s for s in ontology.closed_status(type_name)) or "—"
+        rows.append("| %s | %s | %s | `%s` | %s | %s |"
                     % (LAYER_LABEL.get(spec.get("layer"), spec.get("layer", "")), type_name,
                        ontology.label(type_name), id_pattern(spec["id"]),
-                       spec.get("summary", "")))
+                       spec.get("summary", ""), closed))
     rows.append("")
     rows.append("会議の ID は `%s`。" % id_pattern(ontology.meetings.get("id", "")))
     return "\n".join(rows)

@@ -40,6 +40,8 @@ class Ontology:
         self.signpost_vague_words = data.get("signpost-vague-words", [])
         self.deferral_phrases = data.get("deferral-phrases", [])
         self.assumption_trigger_words = data.get("assumption-trigger-words", [])
+        self.unverified_confidence = data.get("unverified-confidence", "")
+        self.no_record_value = data.get("no-record-value", "")
         self.scope_question = data.get("scope-question", {})
         self.agenda = data.get("agenda", {})
         self._id_res = {t: re.compile(spec["id"]) for t, spec in self.types.items()}
@@ -211,9 +213,32 @@ class Ontology:
         return [(row.get("key", ""), row.get("title", ""), row.get("note", ""))
                 for row in self.agenda.get("sections", []) if isinstance(row, dict)]
 
-    def agenda_closed_status(self):
-        """議題を閉じた（アジェンダに載せない）status。"""
-        return list(self.agenda.get("closed-status", []))
+    def closed_status(self, type_name):
+        """その型の閉じた status。宣言の無い型は空（開閉を持たない）。"""
+        return list(self.spec(type_name).get("closed-status", []))
+
+    def is_open(self, type_name, status):
+        """その status が開いている（アジェンダに持ち越す・lint が追う）か。"""
+        return status not in self.closed_status(type_name)
+
+    def is_active(self, type_name, status):
+        """その status が現に効いているか（DEC はみなし確定の対象、ASM は棚卸しの対象）。"""
+        return status in self.spec(type_name).get("active-status", [])
+
+    def tracked_vulnerability(self):
+        """棚卸しで追う前提の `脆弱性`。"""
+        return list(self.spec("ASM").get("tracked-vulnerability", []))
+
+    def extract_kinds(self):
+        """Pass 3 が最低1件を出す LOG の `種別`（欠落ガード）。"""
+        return list(self.spec("LOG").get("extract-kinds", []))
+
+    def scope_question_value(self, key):
+        """`scope-question` の値。宣言が無ければ止める（既定値で黙って動かさない）。"""
+        try:
+            return self.scope_question[key]
+        except (KeyError, TypeError):
+            raise SchemaError("scope-question.%s が無い" % key) from None
 
     def is_meeting_id(self, value):
         return bool(value) and bool(self._meeting_re.match(value))

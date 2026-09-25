@@ -17,6 +17,10 @@ version: 1
 #   dir    : 置き場ディレクトリ（LOG のみ meetings/MTG-*/logs/ 配下）
 #   label  : 生成物やメッセージで使う日本語名
 #   summary: その型が何を表すかの1行（schema.md の型一覧に生成される）
+#   closed-status: 閉じた status。これ以外は開いている（アジェンダに持ち越す・lint が追う）
+#   active-status: 現に効いている status（DEC はみなし確定の対象、ASM は棚卸しの対象）
+#   extract-kinds: （LOG のみ）Pass 3 が最低1件を出す論点の種別（欠落ガード）
+#   tracked-vulnerability: （ASM のみ）棚卸しで追う `脆弱性`。それ以外は記録するが追わない
 #   headline: そのカードの見出しになるフィールド（DEC/Q/ACT は title、
 #             CON/ASM は 内容、TERM は 正式。ここが型ごとに違う）
 # ------------------------------------------------------------
@@ -33,6 +37,7 @@ types:
     type-value: log
     headline: title
     has-quote: false
+    extract-kinds: [議論, 確認]
 
   # 議題。会議をまたいで続く「決めたいこと」の単位で、DEC / Q / ACT の親。
   # 子が `議題` で親を指し、親は子の一覧を持たない（逆引きで得る。二重管理しない）。
@@ -46,6 +51,7 @@ types:
     type-value: agenda
     headline: title
     has-quote: false
+    closed-status: [決着, 取り下げ]
 
   DEC:
     label: 決定事項
@@ -56,6 +62,8 @@ types:
     type-value: decision
     headline: title
     has-quote: true
+    closed-status: [覆された]
+    active-status: [決定]
 
   Q:
     label: 未定事項
@@ -66,6 +74,7 @@ types:
     type-value: question
     headline: title
     has-quote: true
+    closed-status: [解決, 取り下げ]
 
   ACT:
     label: アクション
@@ -76,6 +85,7 @@ types:
     type-value: action
     headline: title
     has-quote: true
+    closed-status: [完了, 取り下げ]
 
   CON:
     label: 制約
@@ -96,6 +106,8 @@ types:
     type-value: assumption
     headline: 内容
     has-quote: true
+    active-status: [有効]
+    tracked-vulnerability: [高]
 
   TERM:
     label: 用語
@@ -348,11 +360,8 @@ status-implications:
 # 導出
 #   硬度は入力させず 種類 × 所在 から機械的に決める。
 #
-#   注: schema.md の表は「property × 契約/法令 → 岩盤」「property × 顧客側/
-#   その他 → 沈殿」「expectation × 顧客側 → 沈殿」「expectation × 自社側/
-#   協力会社 → 懸濁」の4行。所在の語彙4値との組み合わせ8通りのうち
-#   expectation × 契約 はどの行にも当たらない。推測で埋めず未定義のままにし、
-#   lint は「導出表に無い組み合わせ」として warning を出す。
+#   所在の語彙4値との組み合わせ8通りのうち expectation × 契約 は表に無い。
+#   推測で埋めず未定義のままにし、lint は「導出表に無い組み合わせ」として warning を出す。
 #   語彙 溶液 もどの組み合わせからも出ない（硬度の語彙にはあるが導出されない）。
 # ------------------------------------------------------------
 
@@ -465,7 +474,6 @@ editions:
 # ------------------------------------------------------------
 
 agenda:
-  closed-status: [決着, 取り下げ]
   # 議題を言い換えただけの Q を拾う（lint の `q-restates-agenda`）。
   # 題名から次の語と記号を除いてから、文字の2字組の重なり（Dice 係数・百分率）を見る。
   # 開いた議題そのものが「まだ決まっていない」を表しているので、同じものを Q に立てない。
@@ -502,6 +510,14 @@ thresholds:
 # signpost が「事象または閾値」になっているかを機械で見るのは原理的に無理なので、
 # 否定リストで明らかに足りないものだけを拾う。運用しながら語を足す。
 signpost-vague-words: [注意, 監視, 確認する, 見ておく, 意識する, 気をつける, 把握する]
+
+# 引用を照合できなかった印になる `信頼度` の値。verify-quotes --fix がこの値に降格し、
+# 議事録・ビュー・昇格候補はこの値のカードを「未確認」として扱う。
+unverified-confidence: 推測
+
+# 人間が理由を言わなかったことを表す値（`なぜ`・`却下理由` など）。空欄とは別に、
+# 「確認したが記録が無い」を残す。集計ではこの値と空欄を「記録されていない」として数える。
+no-record-value: 記録なし
 
 # 「前向きに検討します」の類。DEC ではなく Q に落とすべき表現。
 # decision-guide.md の境界例に対応する。

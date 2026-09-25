@@ -113,7 +113,7 @@ class Bundle:
         current = self.wiki.cards_of_meeting(meeting_id, "DEC", "Q", "ACT", "CON", "ASM")
         carried = [c for c in self.wiki.by_type("ACT")
                    if c.error is None
-                   and c.get("status") not in ("完了", "取り下げ")
+                   and self.wiki.is_open(c)
                    and meeting_id not in self.wiki.meetings_of(c)
                    and self._born_by(c, meeting_id)]
 
@@ -136,15 +136,14 @@ class Bundle:
             seen = self.wiki.meetings_of(card)
             return bool(seen) and seen[0] == meeting_id
 
-        closed_q = ("解決", "取り下げ")
         sections = [
             ("前回アクションの結果",
              [c for c in current if c.type == "ACT" and not raised_here(c)]),
             ("決定事項", [c for c in current if c.type == "DEC"]),
             ("未決事項",
-             [c for c in current if c.type == "Q" and c.get("status") not in closed_q]),
+             [c for c in current if c.type == "Q" and self.wiki.is_open(c)]),
             ("この会議で解決した問い",
-             [c for c in current if c.type == "Q" and c.get("status") in closed_q]),
+             [c for c in current if c.type == "Q" and not self.wiki.is_open(c)]),
             ("今回のアクション", [c for c in current if c.type == "ACT" and raised_here(c)]),
             ("新たに記録した制約", [c for c in current if c.type == "CON"]),
             ("新たに記録した前提", [c for c in current if c.type == "ASM"]),
@@ -247,10 +246,10 @@ class Bundle:
             out.append("- いまの状態: %s" % state)
             groups = [("決定", [c for c in children if c.type == "DEC"]),
                       ("未決の問い", [c for c in self.wiki.children_of(card)
-                                     if c.type == "Q" and c.get("status") == "未決"
+                                     if c.type == "Q" and self.wiki.is_open(c)
                                      and self._born_by(c, meeting_id)]),
                       ("この会議で解決した問い",
-                       [c for c in children if c.type == "Q" and c.get("status") != "未決"]),
+                       [c for c in children if c.type == "Q" and not self.wiki.is_open(c)]),
                       ("アクション", [c for c in children if c.type == "ACT"])]
             for label, cards in groups:
                 if customer:
@@ -484,12 +483,12 @@ class Bundle:
         """`却下理由` が実際に記録されている代替案。`記録なし` と空は数えない。"""
         return [row for row in card.structs("代替案")
                 if isinstance(row, dict)
-                and (row.get("却下理由") or "").strip() not in ("", "記録なし")]
+                and (row.get("却下理由") or "").strip() not in ("", schema.load().no_record_value)]
 
     @staticmethod
     def recorded_why(card):
         """`なぜ` が実際に記録されているか。`記録なし` と空は数えない（却下理由と同じ扱い）。"""
-        return (card.get("なぜ") or "").strip() not in ("", "記録なし")
+        return (card.get("なぜ") or "").strip() not in ("", schema.load().no_record_value)
 
     @staticmethod
     def contract_decision(card):
@@ -500,8 +499,8 @@ class Bundle:
         してください」）。理由が語られなくても、発言した役割と引用が残っているので
         将来の議論で辿れる。`信頼度: 推測` は照合できていないので通さない。
         """
-        return (card.get("種別") == "契約制約" and bool(card.get("引用"))
-                and card.get("信頼度") != "推測")
+        return (card.get("種別") == "契約制約" and bool(card.get("引用"))  # 直書き: 理由なしで門を通すのはこの種別だけ
+                and card.get("信頼度") != schema.load().unverified_confidence)
 
     @classmethod
     def passes_gate(cls, card):
@@ -632,12 +631,12 @@ class Bundle:
         want = scope_cmd.pending_scope(self.wiki)
         pending = [c for c in of("DEC") if c.get("スコープ") == want]
         askable = {c.id: to for c, _, to in scope_cmd.plan(self.wiki, meeting_id)}
-        guessed = [c for c in current if c.get("信頼度") == "推測"]
+        guessed = [c for c in current if c.get("信頼度") == self.o.unverified_confidence]
         no_why = [c for c in of("DEC") if not c.get("なぜ")]
         no_reason = [(c, row) for c in of("DEC") for row in c.structs("代替案")
-                     if isinstance(row, dict) and row.get("却下理由") == "記録なし"]
+                     if isinstance(row, dict) and row.get("却下理由") == self.o.no_record_value]
         actions = [c for c in self.wiki.by_type("ACT")
-                   if c.error is None and c.get("status") not in ("完了", "取り下げ")]
+                   if c.error is None and self.wiki.is_open(c)]
 
         out = ["# 確認② — %s（25分）" % meeting_id, "",
                "この25分は「書く」ではなく**判定**に使う。",
