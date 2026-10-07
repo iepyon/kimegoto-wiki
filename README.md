@@ -54,6 +54,11 @@
 ならないので、ここが抽出の精度を決める。推測では埋めない。
 何を DEC とするかの境界は [`decision-guide.md`](decision-guide.md) で、チームで先にすり合わせておく。
 
+Obsidian で読むなら、**案件のディレクトリ（`projects/<案件名>`）を vault として開く。**
+`setup.sh` が `projects/<案件名>/.obsidian/` に事故防止の設定（ファイル名変更時に内部リンクを
+自動更新しない）を置く。ビュー（`views/*.md`）の ID は `[[DEC-001]]` で出るので、そこからカードへ飛べる。
+詳しくは [`docs/obsidian.md`](docs/obsidian.md)。
+
 スキルを使わずに打つなら同じことをこうする。
 
 ```sh

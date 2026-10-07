@@ -15,7 +15,7 @@ description: 最初に一度だけのセットアップを進める。門（pre-
    （案件名）も聞く
 2. 新しい案件なら、雛形をコピーする: `cp -r templates/project projects/<案件名>`。
    既に同名のディレクトリがあればコピーせず、止まって聞く
-3. `sh tools/setup.sh <案件名>` を実行する。門を立て、`.env` を書き、門を一度通す。
+3. `sh tools/setup.sh <案件名>` を実行する。門を立て、`.env` を書き、Obsidian の設定を置き、門を一度通す。
    **通らなければ出力をそのまま見せて止まる**（門を迂回しない、`--no-verify` を勧めない）
 4. 既存の案件ならここで終わり。6 へ
 5. 新しい案件なら、`projects/<案件名>/role-mapping.yaml` を埋める（下の「role-mapping を埋める」）
