@@ -383,7 +383,8 @@ B-3 と同じ流れ。違うのは、前回からの続きの話がカードに�
 
 ### スキルを使わずに打つ
 
-スキルは下のコマンドを呼んでいる。`kime` は `python3 tools/kime.py`。
+スキルは CLI の `kime`（`python3 tools/kime.py`）を呼んでいる。サブコマンドの一覧は
+`python3 tools/kime.py`、各サブコマンドの使い方は `python3 tools/kime.py <サブコマンド> --help`。
 対象の案件は `.env` の `CURRENT_PROJECT`、または `--root` で指定する。
 `--meeting` を省くと最新の会議（`kime status` の「いまの会議」）。
 
@@ -392,31 +393,6 @@ sh tools/setup.sh demo-kb                   # デモで始める
 cp -r templates/project projects/<案件名>    # 自分の案件で始める
 sh tools/setup.sh <案件名>
 ```
-
-| コマンド | 使う場面 |
-|---|---|
-| `kime status` | いつでも。いまの会議・どこまで済んだか・次にやること |
-| `kime agenda-input [--meeting MTG-...]` | ① 次回アジェンダの材料 |
-| `kime new agenda --title "..." --role 顧客PM [--meeting MTG-...] --write` | ① 議題を起票する（会議は未定でよい） |
-| `kime agenda-sync --meeting MTG-... --write` | ② Pass 1 の後、扱った議題を書き戻す |
-| `kime agenda` | ① 次回アジェンダの一覧（ビュー） |
-| `kime unknown-terms --meeting MTG-...` | ② 未知語の候補を拾う |
-| `kime new decision --title "..." --from-log LOG-... --role 顧客PM --write` | ③ カードを起こす（採番つき） |
-| `kime update <ID> --set k=v` | ③④ 既存カードを書き換える |
-| `kime scope-questions [--meeting MTG-...]` | ④ 2-0 で顧客に聞くスコープの確認（`スコープ: 判定保留` の決定の射影。カードは作らない） |
-| `kime verify-quotes --fix` | ③ 引用の照合と降格 |
-| `kime links --fix` | 素の ID で書いた参照を Obsidian のリンクに揃える |
-| `kime review --meeting MTG-...` | ④ 確認のチェックリスト |
-| `kime promote-input --meeting MTG-...` | ④ 昇格候補の材料 |
-| `kime minutes-input --meeting MTG-... [--edition customer]` | ⑤ 議事録の材料 |
-| `kime confirm --meeting MTG-... --sent YYYY-MM-DD` | ⑤ みなし確定の期限を書き戻す |
-| `kime issue --act ACT-NNN --repo owner/repo` | ⑤ Issue の下書き（`--create` で起票） |
-| `kime lint` | いつでも。error 0 が不変条件 |
-| `kime views` | ビューの再生成（通常は Stop フックが行う） |
-| `kime schema --check --check-samples --check-templates` | 設定層を変えたとき |
-| `python3 -m unittest discover -s tests` | 道具を変えたとき |
-
-各サブコマンドの詳細は `kime <サブコマンド> --help`。
 
 ### ファイルの地図
 
