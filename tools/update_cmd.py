@@ -15,7 +15,7 @@ import difflib
 import re
 import sys
 
-from tools import schema
+from tools import links, schema
 from tools.cards import Wiki, resolve_root
 
 KEY = re.compile(r"^(?P<key>[^\s:#][^:]*?)\s*:\s*(?P<value>.*?)\s*$")
@@ -50,10 +50,23 @@ def _find_key(lines, start, end, key):
 
 
 def _parse_flow_list(value):
+    """`[a, "[[b]]"]` → ["a", "b"]。リンクは剥がす。"""
     v = (value or "").strip()
-    if v.startswith("[") and v.endswith("]"):
+    if v.startswith("[") and v.endswith("]") and not links.is_link(v):
         v = v[1:-1]
-    return [x.strip() for x in v.split(",") if x.strip()]
+    return [links.unwrap(x.strip().strip("\"'")) for x in v.split(",") if x.strip()]
+
+
+def _block_items(lines, idx, end):
+    """キーの下にぶら下がるブロックシーケンスの行（`  - x`）の終わり。
+
+    Obsidian の Properties で編集すると、配列はブロック形式で書き直される。
+    キーの行だけを置き換えると、下の行が取り残されて別の値に化ける。
+    """
+    tail = idx + 1
+    while tail < end and lines[tail][:1].isspace() and lines[tail].strip():
+        tail += 1
+    return tail
 
 
 def apply_updates(text, sets=(), add_derived=(), logs=()):
@@ -65,18 +78,24 @@ def apply_updates(text, sets=(), add_derived=(), logs=()):
         idx = _find_key(lines, start, end, key)
         if idx is None:
             raise UpdateError("フィールド `%s` がこのカードに無い" % key)
-        lines[idx] = "%s: %s" % (key, value) if value else "%s:" % key
+        tail = _block_items(lines, idx, end)
+        lines[idx:tail] = ["%s: %s" % (key, value) if value else "%s:" % key]
+        end -= tail - idx - 1
 
     if add_derived:
         idx = _find_key(lines, start, end, DERIVED)
         if idx is None:
             raise UpdateError("フィールド `%s` がこのカードに無い" % DERIVED)
+        tail = _block_items(lines, idx, end)
         m = KEY.match(lines[idx])
         current = _parse_flow_list(m.group("value"))
-        for ref in add_derived:
-            if ref not in current:
-                current.append(ref)
-        lines[idx] = "%s: [%s]" % (DERIVED, ", ".join(current))
+        current += [links.unwrap(l.strip()[1:].strip().strip("\"'"))
+                    for l in lines[idx + 1:tail] if l.strip().startswith("-")]
+        added = [r for r in dict.fromkeys(links.unwrap(r) for r in add_derived)
+                 if r not in current]
+        if added:
+            lines[idx:tail] = ["%s: %s" % (DERIVED, links.flow(current + added))]
+            end -= tail - idx - 1
 
     for entry in logs:
         idx = _find_key(lines, start, end, HISTORY)
@@ -125,6 +144,9 @@ def main(argv=None):
 
     try:
         sets = [_split_set(s) for s in args.set]
+        # 参照フィールドは素の ID で渡されてもリンクで書く
+        kinds = dict(links.linked_fields(wiki.ontology, card.type))
+        sets = [(k, links.render(kinds[k], v) if k in kinds and v else v) for k, v in sets]
         before = card.path.read_text(encoding="utf-8")
         after = apply_updates(before, sets, args.add_derived, args.log)
     except UpdateError as exc:

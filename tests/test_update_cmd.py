@@ -55,7 +55,7 @@ class ApplyUpdatesTest(unittest.TestCase):
 
     def test_derived_fromに追記する(self):
         out = apply_updates(CARD, add_derived=["LOG-20260918-02"])
-        self.assertIn("derived_from: [LOG-20260918-01, LOG-20260918-02]", out)
+        self.assertIn('derived_from: ["[[LOG-20260918-01]]", "[[LOG-20260918-02]]"]', out)
 
     def test_derived_fromの重複は増やさない(self):
         out = apply_updates(CARD, add_derived=["LOG-20260918-01"])

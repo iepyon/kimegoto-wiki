@@ -290,6 +290,23 @@ def check_ref_range(ctx):
     return out
 
 
+@check("ref-unlinked", WARNING)
+def check_ref_unlinked(ctx):
+    """参照がリンク（`"[[ID]]"`）で書かれていない。
+
+    読みは素の ID も受けるので動作は変わらない。Obsidian でバックリンクとグラフに
+    出ないだけなので error にしない。`kime links --fix` で書き直す。
+    """
+    out = []
+    for c in ctx.sound:
+        if c.type == "LOG":
+            continue
+        for name in dict.fromkeys(name for name, _ in c.plain_refs):
+            out.append(_p(check_ref_unlinked, c.id,
+                          "`%s` が素の ID で書かれている（`kime links --fix` でリンクにする）" % name))
+    return out
+
+
 @check("log-ref", ERROR)
 def check_log_ref(ctx):
     """引用を持つカードは、必ずどれかの LOG から生えている。"""

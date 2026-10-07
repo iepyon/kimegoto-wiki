@@ -24,7 +24,7 @@ class 決定の導出(WikiTestCase):
         self.assertEqual(fields["決定の所在"], "顧客PM")
         self.assertEqual(fields["種別"], "交渉可能")
         self.assertEqual(fields["決定日"], "2026-09-18")
-        self.assertEqual(fields["derived_from"], "[LOG-20260918-01]")
+        self.assertEqual(fields["derived_from"], '["[[LOG-20260918-01]]"]')
 
     def test_役割ごとに種別が変わる(self):
         for role, kind in (("顧客PM", "交渉可能"), ("顧客法務", "契約制約"),
@@ -111,7 +111,7 @@ class 雛形への書き込み(WikiTestCase):
         self.assertIn("決定の所在: 顧客PM", text)
         self.assertIn("種別: 交渉可能", text)
         self.assertIn("決定日: 2026-09-18", text)
-        self.assertIn("derived_from: [LOG-20260918-01]", text)
+        self.assertIn('derived_from: ["[[LOG-20260918-01]]"]', text)
         self.assertIn("title: OIDC に寄せる", text)
 
     def test_解釈の要るフィールドは空欄のまま残す(self):
@@ -134,7 +134,7 @@ class 雛形への書き込み(WikiTestCase):
         w = self.wiki([("LOG", "LOG-20260918-01", {})])
         _, text, _, _ = new_card(w, "TERM", meeting="MTG-20260918", title="OIDC",
                                  log="LOG-20260918-01")
-        self.assertIn("初出: LOG-20260918-01", text)
+        self.assertIn('初出: "[[LOG-20260918-01]]"', text)
 
     def test_役割を渡さなければ雛形のまま(self):
         w = self.wiki([("LOG", "LOG-20260918-01", {})])
