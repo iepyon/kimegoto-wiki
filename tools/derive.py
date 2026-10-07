@@ -12,6 +12,7 @@
 （空欄は情報であり、埋めるべき穴ではない）。
 """
 
+from tools import links
 from tools.schema import Ontology  # noqa: F401  （型の見通しのため）
 
 
@@ -38,12 +39,12 @@ def derived_fields(wiki, type_name, role="", log="", meeting="", kind="", today=
                      "決定権「なし」として扱い、役割から引くフィールドは空欄にした" % role)
 
     if log:
-        fields["derived_from"] = "[%s]" % log
+        fields["derived_from"] = links.flow([log])
         # 論点に付いた議題を子カードへ写す。Pass 1 が付けたものだけで、推測はしない。
         agenda = wiki.segment_agenda(log) if type_name in ("DEC", "Q", "ACT") else ""
         if agenda:
             if wiki.get(agenda) is not None and wiki.get(agenda).type == "AGD":
-                fields["議題"] = agenda
+                fields["議題"] = links.scalar(agenda)
             else:
                 notes.append("segments.yaml の議題 `%s` が無い。`議題` は空欄にした" % agenda)
     if type_name == "LOG" and meeting:
@@ -89,7 +90,7 @@ def derived_fields(wiki, type_name, role="", log="", meeting="", kind="", today=
 
     elif type_name == "TERM":
         if log:
-            fields["初出"] = log
+            fields["初出"] = links.scalar(log)
 
     elif type_name == "CON":
         _, source = o.role_derivation("所在") or ("", "")

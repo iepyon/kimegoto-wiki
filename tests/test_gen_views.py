@@ -62,6 +62,7 @@ class OpenItemsTest(ViewTestCase):
                                                 "崩れたら見直す決定": []})], "open-items")
         section = text.split("## 棚卸し対象の前提")[1].split("##")[0]
         self.assertIn("追跡する前提", section)
+        self.assertIn("[[DEC-001]]", section)
         self.assertNotIn("追跡しない前提", section)
 
     def test_件数のまとめを冒頭に出す(self):
@@ -91,6 +92,13 @@ class IndexTest(ViewTestCase):
 
     def test_多対多であることを注記する(self):
         self.assertIn("複数の会議に現れるのは正常", self.render([LOG], "index"))
+
+    def test_カードIDはリンクにし会議はリンクにしない(self):
+        # vault は案件ごと（docs/obsidian.md）。MTG はディレクトリなのでリンク先が無い
+        text = self.render([LOG, ("DEC", "DEC-001", {})], "index")
+        self.assertIn("| [[DEC-001]] |", text)
+        self.assertIn("| [[LOG-20260918-01]] |", text)
+        self.assertNotIn("[[MTG-", text)
 
     def test_型ごとの一覧を出す(self):
         text = self.render([LOG, ("DEC", "DEC-001", {})], "index")

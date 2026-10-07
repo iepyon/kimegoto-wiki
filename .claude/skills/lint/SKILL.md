@@ -43,3 +43,8 @@ description: カードの整合性を点検する。「lint して」「整合�
 
 `python3 tools/kime.py verify-quotes --fix` を提案する。
 自分で LOG のほうを直さない（LOG は不変層）。
+
+## `ref-unlinked` を見つけたら
+
+参照が素の ID で書かれている（Obsidian でリンクにならない）。`python3 tools/kime.py links --fix` で
+書き直す。値は変わらず書き方だけが変わるので、確認なしで回してよい。

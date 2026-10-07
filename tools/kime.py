@@ -19,6 +19,7 @@ COMMANDS = {
     "agenda-input": ("tools.agenda_input_cmd", "次回アジェンダをレンダリングするための材料を組み立てる"),
     "agenda-sync": ("tools.agenda_sync_cmd", "論点に付いた議題を議題カードの status と予定会議に書き戻す"),
     "issue": ("tools.issues", "ACT から GitHub Issue の下書きを作る"),
+    "links": ("tools.links_cmd", "参照フィールドを Obsidian のリンクに揃える（--fix で書き直す）"),
     "lint": ("tools.kimelint", "カードの整合性を機械的に検査する"),
     "minutes-input": ("tools.minutes_cmd", "議事録をレンダリングするための材料を組み立てる"),
     "new": ("tools.new_cmd", "雛形から新しいカードを起こす"),

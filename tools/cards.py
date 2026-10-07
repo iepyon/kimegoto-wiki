@@ -18,7 +18,7 @@ import re
 from functools import cached_property
 from pathlib import Path
 
-from tools import schema
+from tools import links, schema
 from tools.miniyaml import MiniYamlError, parse, parse_frontmatter_block
 
 # LOG 本文の発言行。`- **顧客PM**: ADに繋ぐのは…`
@@ -40,6 +40,8 @@ class Card:
         self.body = body
         self.error = error
         self._mtime = None
+        # リンク（`[[ID]]`）で書かれていなかった参照。data は読んだ時点で素の ID に戻してある
+        self.plain_refs = []
 
     def __repr__(self):
         return "<Card %s %s>" % (self.type, self.id)
@@ -145,7 +147,10 @@ def parse_card(path, ontology):
     declared = data.get("id", "")
     if declared and ontology.type_of_id(declared):
         type_name = ontology.type_of_id(declared)
-    return Card(path, type_name, card_id, data, body)
+    plain = links.normalize(data, ontology, type_name) if type_name in ontology.type_names() else []
+    card = Card(path, type_name, card_id, data, body)
+    card.plain_refs = plain
+    return card
 
 
 class Wiki:

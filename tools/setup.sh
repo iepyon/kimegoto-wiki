@@ -7,7 +7,11 @@
 # 手で打たせずに済ませるために置いている。
 #
 #   sh tools/setup.sh              門を立てるだけ
-#   sh tools/setup.sh demo-kb      あわせて .env に案件を書く
+#   sh tools/setup.sh demo-kb      あわせて .env に案件を書き、Obsidian の設定を置く
+#
+# Obsidian は案件ごとに vault として開く（docs/obsidian.md）。置くのは
+# templates/obsidian/ の事故防止の設定だけで、既に .obsidian/ があれば触らない
+# （個人の設定を上書きしない。.obsidian/ は gitignore 済み）。
 set -e
 
 root=$(git rev-parse --show-toplevel)
@@ -24,6 +28,13 @@ if [ -n "$1" ]; then
     fi
     echo "CURRENT_PROJECT=$1" > .env
     echo "2. .env を書いた（CURRENT_PROJECT=$1）"
+    if [ -d "projects/$1/.obsidian" ]; then
+        echo "   Obsidian: projects/$1/.obsidian は既にある。触らない"
+        echo "   （「内部リンクを自動更新」はオフにしておく。ID = ファイル名が崩れる）"
+    else
+        cp -r templates/obsidian "projects/$1/.obsidian"
+        echo "   Obsidian: projects/$1/.obsidian に設定を置いた（vault は projects/$1）"
+    fi
 elif [ -f .env ]; then
     echo "2. .env は既にある: $(tr -d '\n' < .env)"
 else

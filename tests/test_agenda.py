@@ -81,7 +81,7 @@ class 議題の導出(WikiTestCase):
         w = self.wiki([LOG, agd("AGD-001")], segments={"MTG-20260918": SEGMENTS})
         fields, _ = derived_fields(w, "DEC", role="顧客PM", log="LOG-20260918-01",
                                    meeting="MTG-20260918")
-        self.assertEqual(fields["議題"], "AGD-001")
+        self.assertEqual(fields["議題"], '"[[AGD-001]]"')
 
     def test_論点に議題が無ければ埋めない(self):
         w = self.wiki([LOG, agd("AGD-001")])
