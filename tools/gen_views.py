@@ -31,6 +31,20 @@ GENERATED_ON = re.compile(r"生成基準日:\s*(\d{4}-\d{2}-\d{2})")
 EMPTY = "（なし）"
 
 
+def _link(card_id):
+    """カード ID を Obsidian のリンクにする（vault は案件ごと。docs/obsidian.md）。
+
+    `ID = ファイル名` なので `[[DEC-001]]` で解決する。会議（MTG）はファイルではなく
+    ディレクトリなのでリンクにしない。ビューは顧客に送らないので `[[ ]]` を出してよい
+    （議事録・アジェンダの材料は bundle.py が別に出す）。
+    """
+    return "[[%s]]" % card_id if card_id else card_id
+
+
+def _links(ids):
+    return " / ".join(_link(i) for i in ids)
+
+
 def _header(name, ctx):
     return HEADER % (name, ctx.today.isoformat(), ctx.o.version)
 
@@ -104,7 +118,7 @@ def _section(title, body, note=None):
 
 def _why_missing(ctx):
     """`なぜ` 未記入の決定。書かないことに付けたコスト。"""
-    rows = [[c.id, ctx.head(c), c.get("決定の所在"), c.get("決定日"), ctx.meetings_label(c)]
+    rows = [[_link(c.id), ctx.head(c), c.get("決定の所在"), c.get("決定日"), ctx.meetings_label(c)]
             for c in agenda.why_missing(ctx.wiki)]
     return _table(["ID", "決定", "決定の所在", "決定日", "会議"], rows), len(rows)
 
@@ -121,7 +135,7 @@ def _open_questions(ctx, cards=None):
         rows = []
         for c in sorted(by_owner[owner], key=lambda c: c.id):
             conflict = " / ".join(c.list("対立当事者")) or "—"
-            rows.append([c.id, ctx.head(c), conflict, c.get("初出"), c.get("最終言及")])
+            rows.append([_link(c.id), ctx.head(c), conflict, c.get("初出"), c.get("最終言及")])
         total += len(rows)
         parts.append("### 確認先: %s\n\n%s" % (owner, _table(
             ["ID", "未決の内容", "対立当事者", "初出", "最終言及"], rows)))
@@ -141,7 +155,7 @@ def _open_actions(ctx):
         rows = []
         for c in cards:
             mark = "**超過**" if ctx.overdue(c, "期限") else c.get("status")
-            rows.append([c.id, ctx.head(c), c.get("期限"), mark, c.get("issue")])
+            rows.append([_link(c.id), ctx.head(c), c.get("期限"), mark, c.get("issue")])
         total += len(rows)
         parts.append("### 担当: %s\n\n%s" % (owner, _table(
             ["ID", "アクション", "期限", "状態", "Issue"], rows)))
@@ -153,8 +167,8 @@ def _fragile_assumptions(ctx):
     rows = []
     for c in agenda.fragile_assumptions(ctx.wiki):
         due = "**期限超過**" if ctx.overdue(c, "次回確認日") else c.get("次回確認日")
-        rows.append([c.id, ctx.head(c), c.get("signpost"),
-                     " / ".join(c.list("崩れたら見直す決定")), due])
+        rows.append([_link(c.id), ctx.head(c), c.get("signpost"),
+                     _links(c.list("崩れたら見直す決定")), due])
     return _table(["ID", "前提", "signpost", "崩れたら見直す決定", "次回確認日"], rows), len(rows)
 
 
@@ -163,12 +177,12 @@ def _agenda_items(ctx, items):
     rows = []
     for item in items:
         c = item.card
-        rows.append([c.id, ctx.head(c), c.get("提起者"),
+        rows.append([_link(c.id), ctx.head(c), c.get("提起者"),
                      item.label,
                      " / ".join(c.list("予定会議")) or "（次回）",
-                     " / ".join(d.id for d in item.decisions),
-                     " / ".join(q.id for q in item.questions),
-                     " / ".join(a.id for a in item.actions)])
+                     _links(d.id for d in item.decisions),
+                     _links(q.id for q in item.questions),
+                     _links(a.id for a in item.actions)])
     return _table(["ID", "議題", "提起者", "状態", "予定会議", "決定", "未決", "アクション"],
                   rows), len(rows)
 
@@ -180,7 +194,7 @@ def _open_agenda(ctx):
 
 def _pending_scope(ctx):
     """受託開発では最優先で見る欄。ここで無理に判定すると追加請求の根拠を失う。"""
-    rows = [[c.id, title, c.get("種別"), to or "—", c.get("決定日")]
+    rows = [[_link(c.id), title, c.get("種別"), to or "—", c.get("決定日")]
             for c, title, to in scope_cmd.plan(ctx.wiki)]
     return _table(["ID", "問い", "種別", "確認先", "決定日"], rows), len(rows)
 
@@ -190,13 +204,13 @@ def _guessed(ctx):
     rows = []
     for c in sorted(ctx.of("DEC", "Q", "ACT", "CON", "ASM"), key=lambda c: (c.type, c.id)):
         if c.get("信頼度") == ctx.o.unverified_confidence:
-            rows.append([c.id, ctx.o.label(c.type), ctx.head(c), c.get("引用")])
+            rows.append([_link(c.id), ctx.o.label(c.type), ctx.head(c), c.get("引用")])
     return _table(["ID", "種別", "内容", "引用"], rows), len(rows)
 
 
 def _unconfirmed(ctx):
     """みなし確定の書き戻し待ち。"""
-    rows = [[c.id, ctx.head(c), c.get("決定日"), c.get("会議体")]
+    rows = [[_link(c.id), ctx.head(c), c.get("決定日"), c.get("会議体")]
             for c in sorted(ctx.of("DEC"), key=lambda c: c.id)
             if ctx.wiki.is_active(c) and not c.get("確定日")]
     return _table(["ID", "決定", "決定日", "会議体"], rows), len(rows)
@@ -301,10 +315,10 @@ def view_index(ctx):
     for type_name in ctx.o.type_names():
         cards = sorted(ctx.of(type_name), key=lambda c: c.id)
         if type_name == "LOG":
-            rows = [[c.id, ctx.head(c), c.get("種別"), c.get("meeting")] for c in cards]
+            rows = [[_link(c.id), ctx.head(c), c.get("種別"), c.get("meeting")] for c in cards]
             body = _table(["ID", "論点", "種別", "会議"], rows)
         else:
-            rows = [[c.id, ctx.head(c), c.get("status"), ctx.meetings_label(c)] for c in cards]
+            rows = [[_link(c.id), ctx.head(c), c.get("status"), ctx.meetings_label(c)] for c in cards]
             body = _table(["ID", "内容", "status", "会議"], rows)
         out.append(_section("%s — %s（%d件）" % (type_name, ctx.o.label(type_name), len(cards)),
                             body))

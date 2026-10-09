@@ -133,6 +133,7 @@ python3 tools/kime.py                          # サブコマンド一覧
 python3 tools/kime.py status                   # いまの会議・どこまで済んだか・次にやること
 python3 tools/kime.py lint                     # 整合性検査（error 0 が不変条件）
 python3 tools/kime.py verify-quotes --fix      # 引用不一致を「推測」に降格
+python3 tools/kime.py links --fix              # 素の ID で書いた参照を Obsidian のリンクに揃える
 python3 tools/kime.py scope-questions [--meeting MTG-...]  # スコープの確認（`判定保留` の決定の射影。カードは作らない）
 python3 tools/kime.py unknown-terms --meeting MTG-...              # 未知語の候補を拾う
 python3 tools/kime.py views                    # ビュー再生成

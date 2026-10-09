@@ -38,7 +38,7 @@ description: LOG カードから決定事項・未決事項・アクションを
        --from-log LOG-20260918-03 --role 顧客PM --write
    ```
 
-5. `python3 tools/kime.py verify-quotes --fix` → `kime lint` で error 0 を確認
+5. `python3 tools/kime.py verify-quotes --fix` → `kime links --fix`（素の ID で書いた参照をリンクに揃える）→ `kime lint` で error 0 を確認
 6. 人間の確認は `/review` が進行する（このスキルでは求めない）
 
 ## 非対称に設計する
