@@ -7,6 +7,13 @@
 
 **frontmatter を行単位で置き換える。** キーの順序・コメント・空欄をそのまま残すため、
 YAML として読み書きし直さない（`tools/quotes.py` の `fix_card` と同じ方針）。
+
+**人が渡した値は、一字も変えずに書くか、書かずに止まる。** `なぜ: #1 は…` を囲まずに
+書くと YAML のコメントになり、空として読まれる。lint は why-missing に戻るだけで、
+聞き取った言葉が黙って消える。だから `--set` は1つの値だけを受け、`render_value` で
+囲み、書いた結果を `verify` が読み戻して渡した値と照合する。配列は `--set` で書かない
+（`derived_from` は `--add-derived`、ほかは直接直す）。配列の分解を持ち込むと、
+分解の穴がそのまま照合の穴になる。
 """
 
 import argparse
@@ -16,9 +23,11 @@ import re
 import sys
 
 from tools import links, schema
-from tools.cards import Wiki, resolve_root
+from tools.cards import Wiki, resolve_root, yaml_scalar
+from tools.miniyaml import MiniYamlError, parse_frontmatter_block
 
 KEY = re.compile(r"^(?P<key>[^\s:#][^:]*?)\s*:\s*(?P<value>.*?)\s*$")
+LOG_ENTRY = re.compile(r"^(?P<date>\d{4}-\d{2}-\d{2})\s*:\s*(?P<text>.*?)\s*$")
 
 # 追記できるのはこの2つだけ。ほかは --set で置き換える。
 DERIVED = "derived_from"
@@ -69,8 +78,25 @@ def _block_items(lines, idx, end):
     return tail
 
 
+def _split_log(entry):
+    """`YYYY-MM-DD: 内容` → (日付, 内容)。`更新履歴` は日付をキーにした行の列なので、
+    日付が無いと構造が壊れる。"""
+    m = LOG_ENTRY.match(entry.strip())
+    if not m or not m.group("text"):
+        raise UpdateError("--log は 'YYYY-MM-DD: 内容' の形で渡す: %s" % entry)
+    try:
+        datetime.date.fromisoformat(m.group("date"))
+    except ValueError:
+        raise UpdateError("--log の日付が実在しない: %s" % m.group("date")) from None
+    return m.group("date"), m.group("text")
+
+
 def apply_updates(text, sets=(), add_derived=(), logs=()):
-    """カード本文（文字列）に更新を当てて返す。何も変わらなければ同じ文字列。"""
+    """カード本文（文字列）に更新を当てて返す。何も変わらなければ同じ文字列。
+
+    `sets` の値は frontmatter にそのまま書ける形で渡す（人が渡した値は先に
+    `render_value` を通す）。`logs` は `YYYY-MM-DD: 内容` で、内容はここで囲む。
+    """
     lines = text.splitlines()
     start, end = _frontmatter_bounds(lines)
 
@@ -101,15 +127,81 @@ def apply_updates(text, sets=(), add_derived=(), logs=()):
         idx = _find_key(lines, start, end, HISTORY)
         if idx is None:
             raise UpdateError("フィールド `%s` がこのカードに無い" % HISTORY)
+        # `更新履歴: []` と1行で書かれていたら、ブロック形式に開いてから足す。
+        if KEY.match(lines[idx]).group("value").split("#")[0].strip() in ("[]", "[ ]"):
+            lines[idx] = "%s:" % HISTORY
+        # ブロックの末尾。空行はその先にまだ項目があるときだけ跨ぐ（YAML はそう読む）。
         tail = idx + 1
-        while tail < end and (lines[tail][:1].isspace() or lines[tail].strip() == ""):
-            if lines[tail].strip() == "":
+        while tail < end:
+            if lines[tail].strip():
+                if not lines[tail][:1].isspace():
+                    break
+            elif not (tail + 1 < end and lines[tail + 1][:1].isspace()
+                      and lines[tail + 1].strip()):
                 break
             tail += 1
-        lines.insert(tail, "  - %s" % entry)
+        date, content = _split_log(entry)
+        lines.insert(tail, "  - %s: %s" % (date, yaml_scalar(content)))
         end += 1
 
     return "\n".join(lines) + "\n"
+
+
+def render_value(ontology, type_name, key, raw):
+    """人が渡した1つの値を (frontmatter に書く形, 読み戻したときに得られるべき値) にする。
+
+    参照はリンクで書く（素の ID でも `[[ID]]` でもよい）。配列は受けない。
+    それ以外はそのまま囲む。利用者が付けた `"` も言葉の一部として残す。
+    """
+    kind = ontology.field_specs(type_name).get(key, {}).get("kind")
+    if kind in ("ref-list", "str-list", "struct-list"):
+        hint = ("`--add-derived` で足す" if key == DERIVED else
+                "`--log` で足す" if key == HISTORY else "カードを直接直す")
+        raise UpdateError("`%s` は配列なので --set では書けない（%s）" % (key, hint))
+    if raw == "":
+        return "", ""
+    if key in dict(links.linked_fields(ontology, type_name)):
+        card_id = links.unwrap(raw)
+        if raw not in (card_id, "[[%s]]" % card_id) or \
+                ontology.type_of_id(card_id) not in ontology.ref_targets(type_name, key):
+            raise UpdateError("`%s` に渡した %r は %s の ID ではない"
+                              % (key, raw, " / ".join(ontology.ref_targets(type_name, key))))
+        return links.scalar(card_id), "[[%s]]" % card_id
+    return yaml_scalar(raw), raw
+
+
+def verify(text, expected=(), logs=()):
+    """書いた結果を読み戻し、渡した値と一字でも違えば UpdateError。
+
+    囲む規則に漏れがあっても、黙って欠けることだけはここで止める。
+    `expected` は {フィールド: 読み戻したときの値}、`logs` は足した更新履歴の行。
+    """
+    try:
+        data, _ = parse_frontmatter_block(text)
+    except MiniYamlError as exc:
+        raise UpdateError("書くとカードが読めなくなる（%s）。書かずに止めた" % exc)
+    want = dict(expected)
+    if logs:
+        rows = data.get(HISTORY) or []
+        want[HISTORY] = [dict([_split_log(e)]) for e in logs]
+        data[HISTORY] = rows[-len(logs):] if isinstance(rows, list) else rows
+    for key, value in want.items():
+        got = data.get(key, "")
+        if got != value:
+            raise UpdateError("`%s` が %r として読まれる（渡した値: %r）。書かずに止めた"
+                              % (key, got, value))
+
+
+def update_text(text, ontology, type_name, sets=(), add_derived=(), logs=()):
+    """人が渡した値でカードを書き換え、読み戻して照合してから返す。"""
+    rendered, expected = [], {}
+    for key, raw in sets:
+        value, want = render_value(ontology, type_name, key, raw)
+        rendered.append((key, value))
+        expected[key] = want
+    out = apply_updates(text, rendered, add_derived, logs)
+    verify(out, expected, logs)
+    return out
 
 
 def _split_set(raw):
@@ -124,7 +216,7 @@ def main(argv=None):
         prog="kime update", description="既存カードのフィールドを書き換える")
     ap.add_argument("id", help="カード ID（DEC-014 など）")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
-                    help="トップレベルのフィールドを置き換える（複数可）")
+                    help="トップレベルのフィールドを1つの値で置き換える（複数可。配列は不可）")
     ap.add_argument("--add-derived", action="append", default=[], metavar="LOG-ID",
                     help="derived_from に LOG を足す（既にあれば何もしない）")
     ap.add_argument("--log", action="append", default=[], metavar="'YYYY-MM-DD: 内容'",
@@ -144,11 +236,9 @@ def main(argv=None):
 
     try:
         sets = [_split_set(s) for s in args.set]
-        # 参照フィールドは素の ID で渡されてもリンクで書く
-        kinds = dict(links.linked_fields(wiki.ontology, card.type))
-        sets = [(k, links.render(kinds[k], v) if k in kinds and v else v) for k, v in sets]
         before = card.path.read_text(encoding="utf-8")
-        after = apply_updates(before, sets, args.add_derived, args.log)
+        after = update_text(before, wiki.ontology, card.type,
+                            sets, args.add_derived, args.log)
     except UpdateError as exc:
         print(str(exc), file=sys.stderr)
         return 1

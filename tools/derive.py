@@ -13,6 +13,7 @@
 """
 
 from tools import links
+from tools.cards import yaml_scalar
 from tools.schema import Ontology  # noqa: F401  （型の見通しのため）
 
 
@@ -53,7 +54,7 @@ def derived_fields(wiki, type_name, role="", log="", meeting="", kind="", today=
     if type_name == "AGD":
         # 会議の前に起票されるので、会議の実在を見ない（予定会議は未来でよい）。
         if role:
-            fields["提起者"] = role
+            fields["提起者"] = yaml_scalar(role)
         if today:
             fields["提起日"] = today
         if meeting:
@@ -61,24 +62,24 @@ def derived_fields(wiki, type_name, role="", log="", meeting="", kind="", today=
 
     elif type_name == "DEC":
         if role:
-            fields["決定の所在"] = role
+            fields["決定の所在"] = yaml_scalar(role)
         if date:
             fields["決定日"] = date
         body = (wiki.meta or {}).get("会議体", "")
         if body:
-            fields["会議体"] = body
+            fields["会議体"] = yaml_scalar(body)
         key, source = o.role_derivation("種別") or ("", "")
         if source:
             value = _role_field(wiki, role, source)
             if value:
-                fields["種別"] = value
+                fields["種別"] = yaml_scalar(value)
         if known and not wiki.ontology.grants_authority(wiki.role(role)):
             notes.append("役割 `%s` は決定権が「あり」ではない。"
                          "この発言だけで DEC を起票しない — Q に落とす" % role)
 
     elif type_name == "Q":
         if role:
-            fields["確認先"] = role
+            fields["確認先"] = yaml_scalar(role)
         if date:
             fields["初出"] = date
             fields["最終言及"] = date
@@ -86,7 +87,7 @@ def derived_fields(wiki, type_name, role="", log="", meeting="", kind="", today=
     elif type_name == "ACT":
         company = _role_field(wiki, role, "社名")
         if company:
-            fields["担当"] = company
+            fields["担当"] = yaml_scalar(company)
 
     elif type_name == "TERM":
         if log:
@@ -96,13 +97,13 @@ def derived_fields(wiki, type_name, role="", log="", meeting="", kind="", today=
         _, source = o.role_derivation("所在") or ("", "")
         location = _role_field(wiki, role, source) if source else ""
         if location:
-            fields["所在"] = location
+            fields["所在"] = yaml_scalar(location)
         if kind:
-            fields["種類"] = kind
+            fields["種類"] = yaml_scalar(kind)
         if kind and location:
             hardness = o.derive_hardness(kind, location)
             if hardness:
-                fields["硬度"] = hardness
+                fields["硬度"] = yaml_scalar(hardness)
             else:
                 notes.append("`%s` × `%s` は導出表にない組み合わせ。"
                              "`硬度` は空欄のままにした（ontology.yaml の derivations を見る）"
