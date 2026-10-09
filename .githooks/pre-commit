@@ -62,17 +62,9 @@ for project in projects/*/; do
     python3 tools/kime.py lint --root "$project"
 done
 
-# 4. ビューの鮮度
-for project in projects/*/; do
-    [ -d "$project" ] || continue
-    [ -f "$project/.fixture" ] && continue
-    [ -f "$project/.wip" ] && continue
-    if [ -d "$project/views" ]; then
-        python3 tools/kime.py views --root "$project" --check
-    fi
-done
+# ビューの鮮度は見ない。ビューは追跡しない生成物（.gitignore）で、コミットに載らない。
 
-# 5. 不変層 — 文字起こし原本と LOG カードの改変を拒む（追加・削除は許す）
+# 4. 不変層 — 文字起こし原本と LOG カードの改変を拒む（追加・削除は許す）
 # 比較先が無いとき（--all だけで呼ばれたとき）は見ない。差分が定義できないため。
 if [ -n "$base" ]; then
     diff_args="--diff-filter=M $base...HEAD"

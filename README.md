@@ -400,7 +400,7 @@ sh tools/setup.sh <案件名>
 |---|---|
 | `projects/<案件名>/` | 案件ごとのカード群と `role-mapping.yaml` |
 | `projects/<案件名>/meetings/MTG-*/` | 文字起こし・論点・LOG（**不変層**） |
-| `projects/<案件名>/views/` | 生成物。**手で編集しない** |
+| `projects/<案件名>/views/` | 生成物。**手で編集しない。コミットしない** |
 | `ontology.yaml` | 型・フィールド・語彙・閾値の唯一の正本 |
 | `decision-guide.md` | 何を DEC とするかの判定ガイド。**最初に読む** |
 | `schema.md` | カード定義の論証（型一覧・ID 形式・フィールド表・導出表は `ontology.yaml` から生成） |

@@ -41,12 +41,11 @@ def main():
             wiki = Wiki(root, ontology)
             if not wiki.cards or wiki.is_fixture:
                 continue
-            # カードより新しいビューしか無いならスキップ（毎ターン全書き換えしない）
-            newest = wiki.newest_card_mtime()
-            views = wiki.views_dir
-            if views.is_dir():
-                oldest_view = min((p.stat().st_mtime for p in views.glob("*.md")), default=0)
-                if oldest_view >= newest:
+            # カードより新しいビューしか無いならスキップ（毎ターン全書き換えしない）。
+            # 見るのは生成するビューだけ。views/README.md を混ぜると、それが古い限り毎ターン作り直す
+            paths = [wiki.views_dir / ("%s.md" % name) for name in gen_views.VIEWS]
+            if all(p.exists() for p in paths):
+                if min(p.stat().st_mtime for p in paths) >= wiki.newest_card_mtime():
                     continue
             gen_views.generate(wiki)
     except Exception:          # noqa: BLE001 — フックは作業を止めない
