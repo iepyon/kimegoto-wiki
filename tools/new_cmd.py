@@ -23,7 +23,7 @@ import sys
 from tools import schema
 from tools.cards import Wiki, resolve_root
 from tools.derive import derived_fields
-from tools.update_cmd import UpdateError, apply_updates
+from tools.update_cmd import UpdateError, apply_updates, update_text
 
 # 型 -> 雛形ファイル名
 TEMPLATE = {"AGD": "agd", "DEC": "dec", "Q": "q", "ACT": "act", "CON": "con",
@@ -56,17 +56,8 @@ def new_card(wiki, type_name, meeting=None, title=None, index=None,
         target = wiki.root / o.dir_of(type_name) / ("%s.md" % card_id)
 
     if title:
-        headline = o.headline_field(type_name)
-        placeholder = {
-            "title": {"AGD": "決めたいこと（提起者の言葉のまま）",
-                      "DEC": "決定の内容を一文で", "Q": "何が決まっていないか",
-                      "ACT": "誰が何をするか", "LOG": "論点の見出し"},
-            "内容": {"CON": "選択肢を削る環境の性質", "ASM": "成り立っていればよい仮定"},
-            "正式": {"TERM": "正式表記"},
-        }.get(headline, {}).get(type_name)
-        if placeholder:
-            text = text.replace("%s: %s" % (headline, placeholder),
-                                "%s: %s" % (headline, title))
+        # 見出しは人の言葉。`[至急] …` や `#1 …` でも一字も変えずに書く。
+        text = update_text(text, o, type_name, sets=[(o.headline_field(type_name), title)])
 
     fields, notes = derived_fields(wiki, type_name, role=role, log=log,
                                    meeting=meeting or "", kind=kind, today=today)
@@ -126,7 +117,7 @@ def main(argv=None):
         card_id, text, target, notes = new_card(
             wiki, type_name, meeting, args.title,
             role=args.role or "", log=log_id, kind=args.kind or "", today=today)
-    except ValueError as exc:
+    except (ValueError, UpdateError) as exc:
         print(exc, file=sys.stderr)
         return 2
 
