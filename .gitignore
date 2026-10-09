@@ -6,3 +6,7 @@ __pycache__/
 
 # Obsidian の個人設定（ワークスペース配置など）
 .obsidian/
+
+# ビューは生成物。Stop フックか `kime views` が手元で作る（README だけは追跡する）
+projects/*/views/*.md
+!projects/*/views/README.md

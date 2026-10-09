@@ -19,7 +19,7 @@
 | **記録層** | `projects/<slug>/` のカード群 | 規約に従って作成・更新する |
 | **設定層** | `ontology.yaml`、`.claude/skills/`、`templates/`、`decision-guide.md` | 人間が合意のうえで変える |
 | **案件の設定** | `projects/<slug>/role-mapping.yaml` | 案件ごとに持つ。キットのルートにフォールバックしない |
-| **生成物** | `projects/<slug>/views/*.md`、`schema.md` の `<!-- generated -->` ブロック | **手で編集しない。** 再生成で消える |
+| **生成物** | `projects/<slug>/views/*.md`、`schema.md` の `<!-- generated -->` ブロック | **手で編集しない。コミットしない**（views は .gitignore）。再生成で消える |
 
 LOG を不変層に入れているのは、そこが**すべての引用の照合先**だから。
 LOG を直せるなら「カードに合うように記録のほうを変える」ことができてしまい、
