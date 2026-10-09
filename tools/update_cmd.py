@@ -7,6 +7,12 @@
 
 **frontmatter を行単位で置き換える。** キーの順序・コメント・空欄をそのまま残すため、
 YAML として読み書きし直さない（`tools/quotes.py` の `fix_card` と同じ方針）。
+
+**人が渡した値は、一字も変えずに書くか、書かずに止まる。** `なぜ: #1 は…` は
+YAML ではコメントになり、空として読まれる。空になっても lint は why-missing に
+戻るだけで、聞き取った言葉が黙って消える。だから値を型に応じて囲み（`render_value`）、
+書いた結果を読み戻して渡した値と照合する（`verify`）。囲む規則に漏れがあっても、
+照合が止める。
 """
 
 import argparse
@@ -16,9 +22,11 @@ import re
 import sys
 
 from tools import links, schema
-from tools.cards import Wiki, resolve_root
+from tools.cards import Wiki, resolve_root, yaml_scalar
+from tools.miniyaml import MiniYamlError, parse_frontmatter_block
 
 KEY = re.compile(r"^(?P<key>[^\s:#][^:]*?)\s*:\s*(?P<value>.*?)\s*$")
+LOG_ENTRY = re.compile(r"^(?P<date>\d{4}-\d{2}-\d{2})\s*:\s*(?P<text>.*?)\s*$")
 
 # 追記できるのはこの2つだけ。ほかは --set で置き換える。
 DERIVED = "derived_from"
@@ -69,8 +77,30 @@ def _block_items(lines, idx, end):
     return tail
 
 
+def _split_log(entry):
+    """`YYYY-MM-DD: 内容` → (日付, 内容)。`更新履歴` は日付をキーにした行の列なので、
+    日付が無いと構造が壊れる。"""
+    m = LOG_ENTRY.match(entry.strip())
+    if not m or not m.group("text"):
+        raise UpdateError("--log は 'YYYY-MM-DD: 内容' の形で渡す: %s" % entry)
+    return m.group("date"), m.group("text")
+
+
+def _parses(text):
+    try:
+        parse_frontmatter_block(text)
+    except MiniYamlError:
+        return False
+    return True
+
+
 def apply_updates(text, sets=(), add_derived=(), logs=()):
-    """カード本文（文字列）に更新を当てて返す。何も変わらなければ同じ文字列。"""
+    """カード本文（文字列）に更新を当てて返す。何も変わらなければ同じ文字列。
+
+    `sets` の値は frontmatter にそのまま書ける形で渡す（人が渡した値は `update_text`
+    を通す）。`logs` は `YYYY-MM-DD: 内容` で、内容はここで囲む。
+    読めていたカードが読めなくなる書き換えは UpdateError にする。
+    """
     lines = text.splitlines()
     start, end = _frontmatter_bounds(lines)
 
@@ -106,10 +136,84 @@ def apply_updates(text, sets=(), add_derived=(), logs=()):
             if lines[tail].strip() == "":
                 break
             tail += 1
-        lines.insert(tail, "  - %s" % entry)
+        date, content = _split_log(entry)
+        lines.insert(tail, "  - %s: %s" % (date, yaml_scalar(content)))
         end += 1
 
-    return "\n".join(lines) + "\n"
+    out = "\n".join(lines) + "\n"
+    if out != text and _parses(text) and not _parses(out):
+        raise UpdateError("書くとカードが読めなくなる。書かずに止めた")
+    return out
+
+
+def _split_list(raw):
+    """`a, b` / `[a, b]` / `[[A]], [[B]]` → 要素の列。外側の `[ ]` はリンクと区別して剥がす。"""
+    items = [x.strip() for x in raw.split(",")]
+    if items and items[0].startswith("[") and not links.is_link(items[0]):
+        items[0] = items[0][1:].strip()
+    if items and items[-1].endswith("]") and not links.is_link(items[-1]):
+        items[-1] = items[-1][:-1].strip()
+    return [x.strip("\"'") for x in items if x.strip("\"'")]
+
+
+def render_value(ontology, type_name, key, raw):
+    """人が渡した値を (frontmatter に書く形, 読み戻したときに得られるべき値) にする。
+
+    書き方はフィールドの kind（正本は ontology.yaml）で決まる。参照はリンクで、
+    文字列の列はフロー形式で、それ以外は1つのスカラーとして囲む。
+    """
+    if raw == "":
+        return "", ""
+    kind = ontology.field_specs(type_name).get(key, {}).get("kind")
+    linked = dict(links.linked_fields(ontology, type_name))
+    if key in linked and kind == "ref-list":
+        ids = [links.unwrap(x) for x in _split_list(raw)]
+        return links.flow(ids), ["[[%s]]" % i for i in ids]
+    if key in linked:
+        card_id = links.unwrap(raw.strip("\"'"))
+        return links.scalar(card_id), ("[[%s]]" % card_id if card_id else "")
+    if kind == "str-list":
+        items = _split_list(raw)
+        return "[%s]" % ", ".join(yaml_scalar(i) for i in items), items
+    if kind == "struct-list":
+        raise UpdateError("`%s` は --set では書けない（更新履歴は --log で足す。"
+                          "それ以外はカードを直接直す）" % key)
+    return yaml_scalar(raw), raw
+
+
+def verify(text, expected=(), logs=()):
+    """書いた結果を読み戻し、渡した値と一字でも違えば UpdateError。
+
+    `expected` は {フィールド: 読み戻したときの値}、`logs` は足した更新履歴の行。
+    """
+    try:
+        data, _ = parse_frontmatter_block(text)
+    except MiniYamlError as exc:
+        raise UpdateError("書くとカードが読めなくなる（%s）。書かずに止めた" % exc)
+    for key, want in dict(expected).items():
+        got = data.get(key, "")
+        if got != want:
+            raise UpdateError("`%s` が %r として読まれる（渡した値: %r）。書かずに止めた"
+                              % (key, got, want))
+    if logs:
+        want = [dict([_split_log(e)]) for e in logs]
+        history = data.get(HISTORY) or []
+        got = history[-len(want):] if isinstance(history, list) else history
+        if got != want:
+            raise UpdateError("`%s` が %r として読まれる（渡した値: %r）。書かずに止めた"
+                              % (HISTORY, got, want))
+
+
+def update_text(text, ontology, type_name, sets=(), add_derived=(), logs=()):
+    """人が渡した値でカードを書き換え、読み戻して照合してから返す。"""
+    rendered, expected = [], {}
+    for key, raw in sets:
+        value, want = render_value(ontology, type_name, key, raw)
+        rendered.append((key, value))
+        expected[key] = want
+    out = apply_updates(text, rendered, add_derived, logs)
+    verify(out, expected, logs)
+    return out
 
 
 def _split_set(raw):
@@ -144,11 +248,9 @@ def main(argv=None):
 
     try:
         sets = [_split_set(s) for s in args.set]
-        # 参照フィールドは素の ID で渡されてもリンクで書く
-        kinds = dict(links.linked_fields(wiki.ontology, card.type))
-        sets = [(k, links.render(kinds[k], v) if k in kinds and v else v) for k, v in sets]
         before = card.path.read_text(encoding="utf-8")
-        after = apply_updates(before, sets, args.add_derived, args.log)
+        after = update_text(before, wiki.ontology, card.type,
+                            sets, args.add_derived, args.log)
     except UpdateError as exc:
         print(str(exc), file=sys.stderr)
         return 1

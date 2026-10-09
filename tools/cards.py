@@ -547,16 +547,19 @@ def _current_project():
 # ---------------------------------------------------------------- 書き出し
 
 # クォートが要る値。コロンを含むもの（`00:21:10` のように読めるものも安全側に
-# 倒してクォートする）、`#` を含むもの、行頭が記号のもの、前後に空白があるもの。
-_NEEDS_QUOTE = re.compile(r"[:]|(\s#)|^[\s\-\[\]{}>|*&!?%@`\"']|\s$|^$")
+# 倒してクォートする）、`#` を含むもの、行頭が記号のもの、前後に空白があるもの、
+# 改行を含むもの、空として読まれる `~` / `null`。
+_NEEDS_QUOTE = re.compile(r"[:\n]|(\s#)|^[\s\-\[\]{}>|*&!?%@`\"'#]|\s$|^$|^(~|null)$")
 
 
-def _scalar(value):
+def yaml_scalar(value):
+    """値を frontmatter に1行で書ける形にする。YAML として意味を持つなら囲む。"""
     text = "" if value is None else str(value)
     if text == "":
         return ""
     if _NEEDS_QUOTE.search(text):
-        return '"%s"' % text.replace("\\", "\\\\").replace('"', '\\"')
+        return '"%s"' % (text.replace("\\", "\\\\").replace('"', '\\"')
+                         .replace("\n", "\\n"))
     return text
 
 
@@ -581,16 +584,16 @@ def dump_frontmatter(data, order=None):
                     first = True
                     for k, v in item.items():
                         prefix = "  - " if first else "    "
-                        lines.append("%s%s: %s" % (prefix, k, _scalar(v)))
+                        lines.append("%s%s: %s" % (prefix, k, yaml_scalar(v)))
                         first = False
             else:
-                lines.append("%s: [%s]" % (key, ", ".join(_scalar(v) for v in value)))
+                lines.append("%s: [%s]" % (key, ", ".join(yaml_scalar(v) for v in value)))
         elif isinstance(value, dict):
             lines.append("%s:" % key)
             for k, v in value.items():
-                lines.append("  %s: %s" % (k, _scalar(v)))
+                lines.append("  %s: %s" % (k, yaml_scalar(v)))
         else:
-            rendered = _scalar(value)
+            rendered = yaml_scalar(value)
             lines.append("%s: %s" % (key, rendered) if rendered else "%s:" % key)
     return "\n".join(lines)
 
