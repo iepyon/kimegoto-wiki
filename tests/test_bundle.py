@@ -168,6 +168,50 @@ class MinutesInputTest(BundleTestCase):
         self.assertNotIn("AGD-", customer)
         self.assertNotIn("DEC-", customer)
 
+    # 前の会議で閉じた議題の下の ACT を、今回の確認②で進捗だけ更新した状況（#28）。
+    # ACT の derived_from に今回の LOG が足され、議題が「この会議に子を持つ」ことになる。
+    NEXT_LOG = ("LOG", "LOG-20261002-01", {"meeting": "MTG-20261002"})
+    NEXT_MTG = "MTG-20261002"
+
+    def _closed_agenda_cards(self, **agd):
+        card = {"title": "甲を決めたい", "status": "決着", "決着日": "2026-09-18",
+                "予定会議": [MTG]}
+        card.update(agd)
+        return [LOG, self.NEXT_LOG, ("AGD", "AGD-001", card),
+                ("ACT", "ACT-001", {"title": "甲の宿題", "議題": "AGD-001", "status": "進行中",
+                                    "derived_from": ["LOG-20260918-01", "LOG-20261002-01"]})]
+
+    def test_前の会議で決着した議題はアクションを更新しても議題の節に出ない(self):
+        text = self.bundle(self._closed_agenda_cards()).minutes_input(self.NEXT_MTG, "internal")
+        self.assertNotIn("AGD-001", self._section(text, "議題"))
+        self.assertNotIn("扱えず", self._section(text, "議題"))
+        self.assertIn("ACT-001 甲の宿題", self._section(text, "前回アクションの結果"))
+
+    def test_前の会議で取り下げた議題も同じく出ない(self):
+        cards = self._closed_agenda_cards(status="取り下げ")
+        text = self.bundle(cards).minutes_input(self.NEXT_MTG, "internal")
+        self.assertNotIn("AGD-001", self._section(text, "議題"))
+
+    def test_前の会議で決着した議題でもこの会議で扱えば出る(self):
+        segments = {self.NEXT_MTG: ("meeting: %s\nsegments:\n  - seq: 1\n    title: 論点\n"
+                                    "    種別: 議論\n    議題: AGD-001\n" % self.NEXT_MTG)}
+        w = self.wiki(self._closed_agenda_cards(), segments=segments)
+        section = self._section(Bundle(w).minutes_input(self.NEXT_MTG, "internal"), "議題")
+        self.assertIn("### AGD-001 甲を決めたい", section)
+        self.assertIn("- この会議で: 扱った", section)
+        self.assertIn("- いまの状態: 決着（2026-09-18）", section)
+
+    def test_この会議で決着した議題は出る(self):
+        cards = self._closed_agenda_cards(決着日="2026-10-02", 予定会議=[MTG, self.NEXT_MTG])
+        section = self._section(self.bundle(cards).minutes_input(self.NEXT_MTG, "internal"), "議題")
+        self.assertIn("### AGD-001 甲を決めたい", section)
+        self.assertIn("- いまの状態: 決着（2026-10-02）", section)
+
+    def test_決着日が無ければ今までどおり出す(self):
+        cards = self._closed_agenda_cards(決着日=None)
+        section = self._section(self.bundle(cards).minutes_input(self.NEXT_MTG, "internal"), "議題")
+        self.assertIn("### AGD-001 甲を決めたい", section)
+
     def test_後の会議で起票したアクションを繰り越さない(self):
         cards = [LOG, ("LOG", "LOG-20261002-01", {"meeting": "MTG-20261002"}),
                  ("ACT", "ACT-001", {"title": "後で生えた宿題",
