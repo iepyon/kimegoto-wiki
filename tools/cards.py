@@ -383,6 +383,21 @@ class Wiki:
         agenda_id = agenda.id if isinstance(agenda, Card) else agenda
         return list(self._segment_topics.get(agenda_id, []))
 
+    def closed_before(self, agenda, meeting_id):
+        """その議題が、その会議より前に閉じていたか。
+
+        閉じた status（`ontology.yaml` の `closed-status`）で、かつ `決着日` が
+        会議の日より前。`決着日` が無ければ「いつ閉じたか」が分からないので False
+        （閉じた議題を取りこぼすより、載せすぎるほうを選ぶ）。
+        """
+        card = agenda if isinstance(agenda, Card) else self.get(agenda)
+        if card is None or card.get("status") not in self.ontology.closed_status("AGD"):
+            return False
+        closed_on = card.get("決着日")
+        if not closed_on:
+            return False
+        return str(closed_on) < Meeting(meeting_id, None).date
+
     def agenda_of(self, meeting_id=None):
         """その会議のアジェンダに載る議題（AGD）。[(カード, 持ち越しか), ...]。
 

@@ -216,7 +216,10 @@ class Bundle:
 
         議事録も議題の構造の射影にする。載るのは、この会議に予定していた（持ち越しで
         載ったものを含む）・この会議で扱った・この会議の子を持つ、のどれかの議題。
-        閉じた議題も出す（この会議で決着したことが議事録から読めるように）。
+        この会議で閉じた議題も出す（決着したことが議事録から読めるように）。
+        前の会議で閉じた議題は、この会議で扱ったときだけ出す。閉じた議題の下の
+        アクションを進捗だけ更新すると子を持つが、それは「前回アクションの結果」に
+        出ていて、この会議の議題ではない（#28）。
         """
         rows = []
         for card in sorted(self.wiki.by_type("AGD"), key=lambda c: c.id):
@@ -224,6 +227,8 @@ class Bundle:
                 continue
             children = [c for c in self.wiki.children_of(card) if c in current]
             discussed = meeting_id in self.wiki.discussed_in(card)
+            if self.wiki.closed_before(card, meeting_id) and not discussed:
+                continue
             if not (discussed or children or meeting_id in card.list("予定会議")):
                 continue
             rows.append((card, discussed, children))
